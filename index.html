@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema RDO - Relatório Diário de Obra</title>
+    <style>
+        :root {
+            --primary: #1e3a8a;
+            --secondary: #0284c7;
+            --success: #15803d;
+            --warning: #b45309;
+            --danger: #b91c1c;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --border: #cbd5e1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: #1e293b;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        }
+
+        h1, h2, h3 { color: var(--primary); }
+        h1 { border-bottom: 3px solid var(--secondary); padding-bottom: 10px; margin-top: 0; }
+        h2 { border-bottom: 2px solid var(--border); padding-bottom: 6px; margin-top: 25px; }
+
+        .menu-bar, .submenu-bar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 18px;
+            background-color: var(--secondary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+        .btn-success { background-color: var(--success); }
+        .btn-warning { background-color: var(--warning); }
+        .btn-danger { background-color: var(--danger); }
+        .btn-sub { background-color: #64748b; }
+
+        .section { display: none; }
+        .active { display: block; }
+
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; }
+        input, select, textarea {
+            width: 100%;
+            padding: 9px;
+            box-sizing: border-box;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 0.95em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 10px;
+            text-align: left;
+            font-size: 0.9em;
+        }
+
+        th { background-color: #f1f5f9; }
+
+        .item-dinamico {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+            background: #f8fafc;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        .relatorio-card {
+            border: 1px solid var(--border);
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            background: #ffffff;
+            page-break-inside: avoid;
+        }
+
+        .ass-box {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #94a3b8;
+        }
+        .ass-linha {
+            text-align: center;
+            width: 45%;
+            border-top: 1px solid #000;
+            padding-top: 5px;
+            font-weight: bold;
+            font-size: 0.85em;
+        }
+
+        /* CONFIGURAÇÃO EXCLUSIVA DE IMPRESSÃO */
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
+            body * { visibility: hidden; }
+            #conteudoRelatorio, #conteudoRelatorio * { visibility: visible; }
+            #conteudoRelatorio {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 class="no-print">Sistema de Diário de Obra (RDO)</h1>
+    
+    <!-- Menu Navegação -->
+    <div class="menu-bar no-print">
+        <button onclick="mostrarSecao('sec-estoque')">📦 Almoxarifado</button>
+        <button onclick="mostrarSecao('sec-registro')">📝 Novo RDO Diário</button>
+        <button onclick="mostrarSecao('sec-relatorio'); gerarRelatorio('diario');">📊 Central de Relatórios</button>
+        <button class="btn-danger" onclick="limparBancoDados()" style="margin-left: auto;">💥 Zerar Dados</button>
+    </div>
+
+    <!-- SEÇÃO 1: ALMOXARIFADO -->
+    <div id="sec-estoque" class="section active">
+        <h2>Controle de Estoque e Almoxarifado</h2>
+        <div class="form-group no-print grid-3" style="align-items: flex-end;">
+            <div>
+                <label>Nome do Material</label>
+                <input type="text" id="novoMatNome" placeholder="Ex: Cimento CP II">
+            </div>
+            <div>
+                <label>Quantidade Adicionada</label>
+                <input type="number" id="novoMatQtd" placeholder="Ex: 100">
+            </div>
+            <button class="btn-success" onclick="reporEstoque()">+ Entrada de Material</button>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Material</th>
+                    <th>Estoque Disponível</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaEstoqueCorpo"></tbody>
+        </table>
+    </div>
+
+    <!-- SEÇÃO 2: NOVO REGISTRO DE DIÁRIO DE OBRA -->
+    <div id="sec-registro" class="section no-print">
+        <h2>Registro do Diário de Obra (RDO)</h2>
+        
+        <div class="grid-3">
+            <div class="form-group">
+                <label>Data do Relatório</label>
+                <input type="date" id="regData">
+            </div>
+            <div class="form-group">
+                <label>Engenheiro / Responsável Técnico</label>
+                <input type="text" id="regResponsavel" placeholder="Ex: Eng. Carlos Silva - CREA 12345">
+            </div>
+            <div class="form-group">
+                <label>Fase / Etapa da Obra</label>
+                <input type="text" id="regFase" placeholder="Ex: Fundações / Superestrutura">
+            </div>
+        </div>
+
+        <h3>1. Condições Climáticas e Trabalho</h3>
+        <div class="grid-3">
+            <div class="form-group">
+                <label>Clima Manhã</label>
+                <select id="regClimaManha">
+                    <option value="Ensolarado">Ensolarado</option>
+                    <option value="Nublado">Nublado</option>
+                    <option value="Chuvoso">Chuvoso</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Clima Tarde</label>
+                <select id="regClimaTarde">
+                    <option value="Ensolarado">Ensolarado</option>
+                    <option value="Nublado">Nublado</option>
+                    <option value="Chuvoso">Chuvoso</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Status das Atividades</label>
+                <select id="regCondicaoTrabalho">
+                    <option value="Trabalho Normal">Trabalho Normal</option>
+                    <option value="Parcialmente Paralisado">Parcialmente Paralisado</option>
+                    <option value="Paralisado por Chuva/Intempérie">Paralisado por Chuva/Intempérie</option>
+                </select>
+            </div>
+        </div>
+
+        <h3>2. Efetivo de Mão de Obra</h3>
+        <div class="grid-4">
+            <div class="form-group"><label>Mestre de Obra</label><input type="number" id="efetivoMestre" value="0"></div>
+            <div class="form-group"><label>Pedreiros</label><input type="number" id="efetivoPedreiro" value="0"></div>
+            <div class="form-group"><label>Serventes</label><input type="number" id="efetivoServente" value="0"></div>
+            <div class="form-group"><label>Terceirizados / Outros</label><input type="number" id="efetivoOutros" value="0"></div>
+        </div>
+
+        <h3>3. Equipamentos Utilizados</h3>
+        <div id="listaEquipamentos"></div>
+        <button type="button" onclick="adicionarLinhaEquipamento()" class="btn-sub" style="margin-bottom: 15px;">+ Adicionar Equipamento</button>
+
+        <h3>4. Consumo de Materiais (Baixa do Almoxarifado)</h3>
+        <div id="listaMateriaisUso"></div>
+        <button type="button" onclick="adicionarLinhaMaterial()" class="btn-sub" style="margin-bottom: 15px;">+ Usar Material do Estoque</button>
+
+        <h3>5. Ocorrências, DDS e Visitas Técnicas</h3>
+        <div class="form-group">
+            <textarea id="regOcorrencias" rows="3" placeholder="Descreva paralisações, DDS realizado, acidentes, visitas de fiscalização ou atrasos na entrega de insumos..."></textarea>
+        </div>
+
+        <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; font-size: 1.1em; padding: 12px;">💾 Salvar Diário de Obra</button>
+    </div>
+
+    <!-- SEÇÃO 3: CENTRAL DE RELATÓRIOS -->
+    <div id="sec-relatorio" class="section">
+        <div style="display: flex; justify-content: space-between; align-items: center;" class="no-print">
+            <h2>Central de Relatórios Técinicos</h2>
+            <button class="btn-warning" onclick="window.print()">🖨️ Imprimir Relatório Selecionado</button>
+        </div>
+        
+        <div class="submenu-bar no-print">
+            <button class="btn-sub" onclick="gerarRelatorio('diario')">📋 Diário de Obras (RDO)</button>
+            <button class="btn-sub" onclick="gerarRelatorio('estoque')">📦 Estoque Atual</button>
+            <button class="btn-sub" onclick="gerarRelatorio('entradas')">🚚 Entradas de Material</button>
+        </div>
+
+        <!-- RELATÓRIO A SER IMPRESSO -->
+        <div id="conteudoRelatorio"></div>
+    </div>
+
+</div>
+
+<script>
+    // CARREGAMENTO E PERSISTÊNCIA VIA LOCALSTORAGE
+    let estoque = JSON.parse(localStorage.getItem('rdo_estoque')) || { "CIMENTO": 100, "AREIA (M3)": 20, "AÇO CA-50 10MM (BARRA)": 50 };
+    let diarioObra = JSON.parse(localStorage.getItem('rdo_diario')) || []; 
+    let historicoEntradas = JSON.parse(localStorage.getItem('rdo_entradas')) || [];
+
+    document.getElementById('regData').valueAsDate = new Date();
+
+    function salvarDadosLocalStorage() {
+        localStorage.setItem('rdo_estoque', JSON.stringify(estoque));
+        localStorage.setItem('rdo_diario', JSON.stringify(diarioObra));
+        localStorage.setItem('rdo_entradas', JSON.stringify(historicoEntradas));
+    }
+
+    function limparBancoDados() {
+        if(confirm("Atenção: Isso apagará todo o estoque e os relatórios salvos. Deseja continuar?")) {
+            localStorage.clear();
+            location.reload();
+        }
+    }
+
+    function mostrarSecao(idSecao) {
+        document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+        document.getElementById(idSecao).classList.add('active');
+        if(idSecao === 'sec-estoque') atualizarTabelaEstoque();
+    }
+
+    // GESTÃO DE ESTOQUE
+    function atualizarTabelaEstoque() {
+        const tbody = document.getElementById('tabelaEstoqueCorpo');
+        tbody.innerHTML = '';
+        for (let mat in estoque) {
+            tbody.innerHTML += `<tr><td><strong>${mat}</strong></td><td>${estoque[mat]} un/m³</td></tr>`;
+        }
+    }
+
+    function reporEstoque() {
+        const nome = document.getElementById('novoMatNome').value.trim().toUpperCase(); 
+        const qtd = parseInt(document.getElementById('novoMatQtd').value);
+
+        if (!nome || isNaN(qtd) || qtd <= 0) {
+            alert("Preencha o nome do material e uma quantidade válida!");
+            return;
+        }
+
+        estoque[nome] = (estoque[nome] || 0) + qtd;
+        historicoEntradas.push({
+            data: new Date().toLocaleString('pt-BR'),
+            material: nome,
+            quantidade: qtd
+        });
+
+        salvarDadosLocalStorage();
+        document.getElementById('novoMatNome').value = '';
+        document.getElementById('novoMatQtd').value = '';
+        atualizarTabelaEstoque();
+        alert(`Entrada de ${qtd} un de ${nome} registrada com sucesso.`);
+    }
+
+    // FORMULÁRIO DINÂMICO DE RDO
+    function adicionarLinhaMaterial() {
+        let opcoesHtml = '<option value="">Selecione o material...</option>';
+        for (let mat in estoque) {
+            opcoesHtml += `<option value="${mat}">${mat} (Disp: ${estoque[mat]})</option>`;
+        }
+
+        const div = document.createElement('div');
+        div.className = 'item-dinamico';
+        div.innerHTML = `
+            <select class="mat-nome" style="flex:2">${opcoesHtml}</select>
+            <input type="number" class="mat-qtd" placeholder="Qtd Utilizada" style="flex:1" min="1">
+            <button type="button" class="btn-danger" onclick="this.parentElement.remove()">X</button>
+        `;
+        document.getElementById('listaMateriaisUso').appendChild(div);
+    }
+
+    function adicionarLinhaEquipamento() {
+        const div = document.createElement('div');
+        div.className = 'item-dinamico';
+        div.innerHTML = `
+            <input type="text" class="eq-nome" placeholder="Equipamento (Ex: Betoneira 400L)" style="flex:2">
+            <select class="eq-status" style="flex:1">
+                <option value="Operando">Operando</option>
+                <option value="Parado">Parado</option>
+                <option value="Manutenção">Em Manutenção</option>
+            </select>
+            <button type="button" class="btn-danger" onclick="this.parentElement.remove()">X</button>
+        `;
+        document.getElementById('listaEquipamentos').appendChild(div);
+    }
+
+    function salvarRDO() {
+        const dataRDO = document.getElementById('regData').value;
+        const responsavel = document.getElementById('regResponsavel').value;
+        const fase = document.getElementById('regFase').value;
+
+        if (!dataRDO || !responsavel || !fase) {
+            alert("Preencha a Data, o Responsável Técnico e a Fase da Obra.");
+            return;
+        }
+
+        // Processar Materiais
+        let materiaisUsados = {};
+        let erroEstoque = false;
+        let msgErro = "";
+
+        document.querySelectorAll('#listaMateriaisUso .item-dinamico').forEach(linha => {
+            const nome = linha.querySelector('.mat-nome').value;
+            const qtd = parseInt(linha.querySelector('.mat-qtd').value);
+
+            if (nome && !isNaN(qtd) && qtd > 0) {
+                if ((estoque[nome] || 0) < qtd) {
+                    erroEstoque = true;
+                    msgErro += `- Estoque insuficiente de ${nome}. Disponível: ${estoque[nome] || 0}\n`;
+                } else {
+                    materiaisUsados[nome] = qtd;
+                }
+            }
+        });
+
+        if (erroEstoque) {
+            alert("Falha no estoque:\n" + msgErro);
+            return;
+        }
+
+        // Dar baixa no estoque
+        for (let mat in materiaisUsados) {
+            estoque[mat] -= materiaisUsados[mat];
+        }
+
+        // Processar Equipamentos
+        let equipamentos = [];
+        document.querySelectorAll('#listaEquipamentos .item-dinamico').forEach(linha => {
+            const nome = linha.querySelector('.eq-nome').value.trim();
+            const status = linha.querySelector('.eq-status').value;
+            if (nome) equipamentos.push({ nome, status });
+        });
+
+        // Criar Objeto RDO
+        const rdo = {
+            data: dataRDO.split('-').reverse().join('/'),
+            responsavel,
+            fase,
+            clima: {
+                manha: document.getElementById('regClimaManha').value,
+                tarde: document.getElementById('regClimaTarde').value,
+                condicao: document.getElementById('regCondicaoTrabalho').value
+            },
+            efetivo: {
+                mestre: document.getElementById('efetivoMestre').value || 0,
+                pedreiro: document.getElementById('efetivoPedreiro').value || 0,
+                servente: document.getElementById('efetivoServente').value || 0,
+                outros: document.getElementById('efetivoOutros').value || 0
+            },
+            equipamentos,
+            materiaisUsados,
+            ocorrencias: document.getElementById('regOcorrencias').value || "Sem ocorrências registradas."
+        };
+
+        diarioObra.unshift(rdo); // Adiciona o mais recente no início
+        salvarDadosLocalStorage();
+
+        // Limpar formulário
+        document.getElementById('listaMateriaisUso').innerHTML = '';
+        document.getElementById('listaEquipamentos').innerHTML = '';
+        document.getElementById('regOcorrencias').value = '';
+        
+        alert("RDO salvo e estoque atualizado com sucesso!");
+        mostrarSecao('sec-relatorio');
+        gerarRelatorio('diario');
+    }
+
+    // EMISSÃO DE RELATÓRIOS
+    function gerarRelatorio(tipo) {
+        const container = document.getElementById('conteudoRelatorio');
+        let html = '';
+
+        if (tipo === 'diario') {
+            if (diarioObra.length === 0) {
+                html = `<p>Nenhum Diário de Obra (RDO) foi registrado até o momento.</p>`;
+            } else {
+                diarioObra.forEach((rdo, i) => {
+                    let matsHtml = '<ul>';
+                    for (let m in rdo.materiaisUsados) {
+                        matsHtml += `<li>${m}: ${rdo.materiaisUsados[m]} un/m³</li>`;
+                    }
+                    if (Object.keys(rdo.materiaisUsados).length === 0) matsHtml += '<li>Nenhum material retirado.</li>';
+                    matsHtml += '</ul>';
+
+                    let eqHtml = '<ul>';
+                    rdo.equipamentos.forEach(eq => {
+                        eqHtml += `<li>${eq.nome} - <strong>Status: ${eq.status}</strong></li>`;
+                    });
+                    if (rdo.equipamentos.length === 0) eqHtml += '<li>Nenhum equipamento registrado.</li>';
+                    eqHtml += '</ul>';
+
+                    html += `
+                        <div class="relatorio-card">
+                            <div style="display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:5px;">
+                                <h3>RELATÓRIO DIÁRIO DE OBRA (RDO)</h3>
+                                <h3>Data: ${rdo.data}</h3>
+                            </div>
+                            <p><strong>Responsável Técnico:</strong> ${rdo.responsavel} | <strong>Fase/Etapa:</strong> ${rdo.fase}</p>
+                            
+                            <hr>
+                            <p><strong>Condições Climáticas:</strong> Manhã: ${rdo.clima.manha} | Tarde: ${rdo.clima.tarde} | <strong>Status:</strong> ${rdo.clima.condicao}</p>
+                            
+                            <hr>
+                            <p><strong>Efetivo em Obra:</strong> Mestre: ${rdo.efetivo.mestre} | Pedreiros: ${rdo.efetivo.pedreiro} | Serventes: ${rdo.efetivo.servente} | Terceirizados: ${rdo.efetivo.outros}</p>
+                            
+                            <hr>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                                <div><strong>Equipamentos em Obra:</strong>${eqHtml}</div>
+                                <div><strong>Materiais Utilizados:</strong>${matsHtml}</div>
+                            </div>
+                            
+                            <hr>
+                            <p><strong>Ocorrências / Observações Técnicas / Segurança:</strong></p>
+                            <p style="background:#f1f5f9; padding:10px; border-radius:4px;">${rdo.ocorrencias}</p>
+
+                            <div class="ass-box">
+                                <div class="ass-linha">Responsável Técnico (Engenharia)</div>
+                                <div class="ass-linha">Fiscalização / Contratante</div>
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+        } else if (tipo === 'estoque') {
+            html = `<h2>Posição de Estoque no Almoxarifado</h2><p>Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}</p>`;
+            html += `<table><thead><tr><th>Material Insumo</th><th>Quantidade Disponível</th></tr></thead><tbody>`;
+            for (let m in estoque) {
+                html += `<tr><td>${m}</td><td>${estoque[m]}</td></tr>`;
+            }
+            html += `</tbody></table>`;
+
+        } else if (tipo === 'entradas') {
+            html = `<h2>Histórico de Entradas de Insumos</h2><p>Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}</p>`;
+            html += `<table><thead><tr><th>Data/Hora Entrada</th><th>Material</th><th>Qtd Adicionada</th></tr></thead><tbody>`;
+            historicoEntradas.forEach(ent => {
+                html += `<tr><td>${ent.data}</td><td>${ent.material}</td><td>${ent.quantidade}</td></tr>`;
+            });
+            html += `</tbody></table>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    atualizarTabelaEstoque();
+</script>
+</body>
+</html>

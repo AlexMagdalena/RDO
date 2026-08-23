@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema RDO - Relatório Diário de Obra</title>
+    <title>Sistema RDO Multi-Obras & Usuários</title>
     <style>
         :root {
             --primary: #1e3a8a;
@@ -33,8 +33,29 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.05);
         }
 
+        .header-obra {
+            background: #eff6ff;
+            border: 2px solid var(--secondary);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .header-obra select {
+            font-size: 1.05em;
+            font-weight: bold;
+            padding: 8px;
+            width: auto;
+            min-width: 250px;
+        }
+
         h1, h2, h3 { color: var(--primary); }
-        h1 { border-bottom: 3px solid var(--secondary); padding-bottom: 10px; margin-top: 0; }
+        h1 { border-bottom: 3px solid var(--secondary); padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between; align-items: center; }
         h2 { border-bottom: 2px solid var(--border); padding-bottom: 6px; margin-top: 25px; }
 
         .menu-bar, .submenu-bar {
@@ -130,239 +151,566 @@
             font-size: 0.85em;
         }
 
-        /* CONFIGURAÇÃO EXCLUSIVA DE IMPRESSÃO */
+        /* OVERLAYS DE LOGIN E PRIMEIRO ACESSO */
+        #login-overlay, #troca-senha-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .login-box {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            width: 350px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
         @media print {
             body { background: white; padding: 0; }
             .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
             body * { visibility: hidden; }
             #conteudoRelatorio, #conteudoRelatorio * { visibility: visible; }
-            #conteudoRelatorio {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
+            #conteudoRelatorio { position: absolute; left: 0; top: 0; width: 100%; }
             .no-print { display: none !important; }
         }
     </style>
 </head>
 <body>
 
+<!-- TELA DE LOGIN -->
+<div id="login-overlay">
+    <div class="login-box">
+        <h2>🔐 Identificação RDO</h2>
+        <p style="font-size: 0.9em; color: #64748b;">Entre com seu usuário e senha para acessar o sistema.</p>
+        <div class="form-group">
+            <label>Usuário</label>
+            <input type="text" id="loginUser" placeholder="Digite seu usuário">
+        </div>
+        <div class="form-group">
+            <label>Senha</label>
+            <input type="password" id="loginSenha" placeholder="Sua senha">
+        </div>
+        <button class="btn-success" style="width: 100%;" onclick="fazerLogin()">Entrar no Sistema</button>
+    </div>
+</div>
+
+<!-- TELA DE TROCA DE SENHA OBRIGATÓRIA (PRIMEIRO ACESSO) -->
+<div id="troca-senha-overlay" style="display: none;">
+    <div class="login-box">
+        <h2>🔑 Alterar Senha Padrão</h2>
+        <p style="font-size: 0.85em; color: #b45309; background: #fef3c7; padding: 8px; border-radius: 4px;">
+            Este é o seu primeiro acesso. Por segurança, altere sua senha padrão (123456) antes de prosseguir.
+        </p>
+        <div class="form-group">
+            <label>Nova Senha</label>
+            <input type="password" id="novaSenhaInput" placeholder="Digite a nova senha">
+        </div>
+        <div class="form-group">
+            <label>Confirme a Nova Senha</label>
+            <input type="password" id="confirmaNovaSenhaInput" placeholder="Repita a nova senha">
+        </div>
+        <button class="btn-success" style="width: 100%;" onclick="salvarNovaSenhaPrimeiroAcesso()">Cadastrar Nova Senha e Entrar</button>
+    </div>
+</div>
+
 <div class="container">
-    <h1 class="no-print">Sistema de Diário de Obra (RDO)</h1>
+    <h1 class="no-print">
+        <span>Sistema RDO - Multi-Obras</span>
+        <div style="font-size: 0.5em; display:flex; gap:10px; align-items:center;">
+            <span id="infoUsuarioLogado" style="color: var(--secondary);"></span>
+            <button class="btn-danger" style="padding: 5px 10px; font-size: 0.8em;" onclick="sairSistema()">Sair</button>
+        </div>
+    </h1>
     
-    <!-- Menu Navegação -->
+    <!-- SELETOR DE OBRA ATIVA -->
+    <div class="header-obra no-print">
+        <div>
+            <label style="font-size: 1.1em; color: var(--primary);">🏗️ Obra Ativa em Execução:</label>
+            <select id="seletorObraGlobal" onchange="trocarObraAtiva(this.value)"></select>
+        </div>
+        <div style="display:flex; gap: 8px;">
+            <button class="btn-success" onclick="cadastrarNovaObra()">+ Nova Obra</button>
+            <button class="btn-warning" onclick="arquivarObraAtual()">📂 Arquivar Obra Atual</button>
+        </div>
+    </div>
+
+    <!-- MENU DE NAVEGAÇÃO -->
     <div class="menu-bar no-print">
         <button onclick="mostrarSecao('sec-estoque')">📦 Almoxarifado</button>
         <button onclick="mostrarSecao('sec-registro')">📝 Novo RDO Diário</button>
         <button onclick="mostrarSecao('sec-relatorio'); gerarRelatorio('diario');">📊 Central de Relatórios</button>
-        <button class="btn-danger" onclick="limparBancoDados()" style="margin-left: auto;">💥 Zerar Dados</button>
+        <button class="btn-sub" onclick="mostrarSecao('sec-arquivadas')">📁 Obras Arquivadas</button>
+        <button id="btnMenuUsuarios" class="btn-sub" style="display:none;" onclick="mostrarSecao('sec-usuarios')">👥 Gestão de Usuários</button>
     </div>
 
     <!-- SEÇÃO 1: ALMOXARIFADO -->
     <div id="sec-estoque" class="section active">
-        <h2>Controle de Estoque e Almoxarifado</h2>
+        <h2>Almoxarifado Exclusivo - <span class="nomeObraTxt"></span></h2>
         <div class="form-group no-print grid-3" style="align-items: flex-end;">
             <div>
-                <label>Nome do Material</label>
+                <label>Nome do Insumo</label>
                 <input type="text" id="novoMatNome" placeholder="Ex: Cimento CP II">
             </div>
             <div>
                 <label>Quantidade Adicionada</label>
                 <input type="number" id="novoMatQtd" placeholder="Ex: 100">
             </div>
-            <button class="btn-success" onclick="reporEstoque()">+ Entrada de Material</button>
+            <button class="btn-success" onclick="reporEstoque()">+ Receber Insumo</button>
         </div>
-
         <table>
-            <thead>
-                <tr>
-                    <th>Material</th>
-                    <th>Estoque Disponível</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Material / Insumo</th><th>Saldo em Estoque</th></tr></thead>
             <tbody id="tabelaEstoqueCorpo"></tbody>
         </table>
     </div>
 
-    <!-- SEÇÃO 2: NOVO REGISTRO DE DIÁRIO DE OBRA -->
+    <!-- SEÇÃO 2: REGISTRO RDO -->
     <div id="sec-registro" class="section no-print">
-        <h2>Registro do Diário de Obra (RDO)</h2>
-        
+        <h2>Lançamento do Diário de Obra - <span class="nomeObraTxt"></span></h2>
         <div class="grid-3">
-            <div class="form-group">
-                <label>Data do Relatório</label>
-                <input type="date" id="regData">
-            </div>
-            <div class="form-group">
-                <label>Engenheiro / Responsável Técnico</label>
-                <input type="text" id="regResponsavel" placeholder="Ex: Eng. Carlos Silva - CREA 12345">
-            </div>
-            <div class="form-group">
-                <label>Fase / Etapa da Obra</label>
-                <input type="text" id="regFase" placeholder="Ex: Fundações / Superestrutura">
-            </div>
+            <div class="form-group"><label>Data da Vistoria</label><input type="date" id="regData"></div>
+            <div class="form-group"><label>Engenheiro / Fiscal Responsável</label><input type="text" id="regResponsavel" placeholder="Ex: Eng. Carlos Silva"></div>
+            <div class="form-group"><label>Fase / Frente de Serviço</label><input type="text" id="regFase" placeholder="Ex: Estrutura / Alvenaria"></div>
         </div>
 
-        <h3>1. Condições Climáticas e Trabalho</h3>
+        <h3>1. Condições Climáticas e Produtividade</h3>
         <div class="grid-3">
-            <div class="form-group">
-                <label>Clima Manhã</label>
-                <select id="regClimaManha">
-                    <option value="Ensolarado">Ensolarado</option>
-                    <option value="Nublado">Nublado</option>
-                    <option value="Chuvoso">Chuvoso</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Clima Tarde</label>
-                <select id="regClimaTarde">
-                    <option value="Ensolarado">Ensolarado</option>
-                    <option value="Nublado">Nublado</option>
-                    <option value="Chuvoso">Chuvoso</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Status das Atividades</label>
-                <select id="regCondicaoTrabalho">
-                    <option value="Trabalho Normal">Trabalho Normal</option>
-                    <option value="Parcialmente Paralisado">Parcialmente Paralisado</option>
-                    <option value="Paralisado por Chuva/Intempérie">Paralisado por Chuva/Intempérie</option>
-                </select>
-            </div>
+            <div class="form-group"><label>Clima Manhã</label><select id="regClimaManha"><option value="Ensolarado">Ensolarado</option><option value="Nublado">Nublado</option><option value="Chuvoso">Chuvoso</option></select></div>
+            <div class="form-group"><label>Clima Tarde</label><select id="regClimaTarde"><option value="Ensolarado">Ensolarado</option><option value="Nublado">Nublado</option><option value="Chuvoso">Chuvoso</option></select></div>
+            <div class="form-group"><label>Impacto na Produtividade</label><select id="regCondicaoTrabalho"><option value="Trabalho Normal">Trabalho Normal</option><option value="Parcialmente Paralisado">Parcialmente Paralisado</option><option value="Paralisado por Chuva">Paralisado por Chuva</option></select></div>
         </div>
 
-        <h3>2. Efetivo de Mão de Obra</h3>
+        <h3>2. Mão de Obra Presente (Efetivo)</h3>
         <div class="grid-4">
             <div class="form-group"><label>Mestre de Obra</label><input type="number" id="efetivoMestre" value="0"></div>
             <div class="form-group"><label>Pedreiros</label><input type="number" id="efetivoPedreiro" value="0"></div>
             <div class="form-group"><label>Serventes</label><input type="number" id="efetivoServente" value="0"></div>
-            <div class="form-group"><label>Terceirizados / Outros</label><input type="number" id="efetivoOutros" value="0"></div>
+            <div class="form-group"><label>Terceirizados</label><input type="number" id="efetivoOutros" value="0"></div>
         </div>
 
-        <h3>3. Equipamentos Utilizados</h3>
+        <h3>3. Equipamentos Alocados</h3>
         <div id="listaEquipamentos"></div>
         <button type="button" onclick="adicionarLinhaEquipamento()" class="btn-sub" style="margin-bottom: 15px;">+ Adicionar Equipamento</button>
 
-        <h3>4. Consumo de Materiais (Baixa do Almoxarifado)</h3>
+        <h3>4. Saída de Insumos</h3>
         <div id="listaMateriaisUso"></div>
-        <button type="button" onclick="adicionarLinhaMaterial()" class="btn-sub" style="margin-bottom: 15px;">+ Usar Material do Estoque</button>
+        <button type="button" onclick="adicionarLinhaMaterial()" class="btn-sub" style="margin-bottom: 15px;">+ Dar Baixa em Material</button>
 
-        <h3>5. Ocorrências, DDS e Visitas Técnicas</h3>
-        <div class="form-group">
-            <textarea id="regOcorrencias" rows="3" placeholder="Descreva paralisações, DDS realizado, acidentes, visitas de fiscalização ou atrasos na entrega de insumos..."></textarea>
-        </div>
+        <h3>5. Ocorrências / Observações</h3>
+        <div class="form-group"><textarea id="regOcorrencias" rows="3" placeholder="Descreva ocorrências do dia..."></textarea></div>
 
-        <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; font-size: 1.1em; padding: 12px;">💾 Salvar Diário de Obra</button>
+        <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; font-size: 1.1em; padding: 12px;">💾 Registrar RDO</button>
     </div>
 
-    <!-- SEÇÃO 3: CENTRAL DE RELATÓRIOS -->
+    <!-- SEÇÃO 3: RELATÓRIOS -->
     <div id="sec-relatorio" class="section">
         <div style="display: flex; justify-content: space-between; align-items: center;" class="no-print">
-            <h2>Central de Relatórios Técinicos</h2>
-            <button class="btn-warning" onclick="window.print()">🖨️ Imprimir Relatório Selecionado</button>
+            <h2>Relatórios - <span class="nomeObraTxt"></span></h2>
+            <button class="btn-warning" onclick="window.print()">🖨️ Imprimir Relatório Atual</button>
         </div>
-        
         <div class="submenu-bar no-print">
-            <button class="btn-sub" onclick="gerarRelatorio('diario')">📋 Diário de Obras (RDO)</button>
-            <button class="btn-sub" onclick="gerarRelatorio('estoque')">📦 Estoque Atual</button>
-            <button class="btn-sub" onclick="gerarRelatorio('entradas')">🚚 Entradas de Material</button>
+            <button class="btn-sub" onclick="gerarRelatorio('diario')">📋 RDOs da Obra</button>
+            <button class="btn-sub" onclick="gerarRelatorio('estoque')">📦 Estoque da Obra</button>
+            <button class="btn-sub" onclick="gerarRelatorio('entradas')">🚚 Entradas de Insumos</button>
+        </div>
+        <div id="conteudoRelatorio"></div>
+    </div>
+
+    <!-- SEÇÃO 4: OBRAS ARQUIVADAS -->
+    <div id="sec-arquivadas" class="section">
+        <h2>Obras Arquivadas / Finalizadas</h2>
+        <p style="color: #64748b;">Estas obras foram concluídas e ocultadas da lista de execução diária. Você pode desarquivá-las quando necessário.</p>
+        <table>
+            <thead><tr><th>Nome da Obra</th><th>Total de RDOs</th><th>Ações</th></tr></thead>
+            <tbody id="tabelaObrasArquivadas"></tbody>
+        </table>
+    </div>
+
+    <!-- SEÇÃO 5: GESTÃO DE USUÁRIOS (MASTER APENAS) -->
+    <div id="sec-usuarios" class="section">
+        <h2>Gestão de Usuários (Painel Master)</h2>
+        <p style="color: #64748b;">Crie novos usuários. Todo usuário criado receberá a <strong>senha padrão: 123456</strong> e precisará alterá-la no primeiro acesso.</p>
+        
+        <div class="grid-2 form-group" style="align-items: flex-end; background:#f1f5f9; padding:15px; border-radius:6px;">
+            <div>
+                <label>Nome do Usuário (Login)</label>
+                <input type="text" id="novoUserLogin" placeholder="Ex: fiscal.joao">
+            </div>
+            <div>
+                <label>Perfil de Acesso</label>
+                <select id="novoUserPerfil">
+                    <option value="comum">Comum (Lançamento RDO)</option>
+                    <option value="master">Master (Acesso Total)</option>
+                </select>
+            </div>
+            <button class="btn-success" onclick="cadastrarOuAtualizarUsuario()" style="grid-column: span 2;">Criar Novo Usuário (Senha Padrão: 123456)</button>
         </div>
 
-        <!-- RELATÓRIO A SER IMPRESSO -->
-        <div id="conteudoRelatorio"></div>
+        <table>
+            <thead><tr><th>Usuário</th><th>Perfil</th><th>Status do Acesso</th><th>Ações</th></tr></thead>
+            <tbody id="tabelaUsuariosCorpo"></tbody>
+        </table>
     </div>
 
 </div>
 
 <script>
-    // CARREGAMENTO E PERSISTÊNCIA VIA LOCALSTORAGE
-    let estoque = JSON.parse(localStorage.getItem('rdo_estoque')) || { "CIMENTO": 100, "AREIA (M3)": 20, "AÇO CA-50 10MM (BARRA)": 50 };
-    let diarioObra = JSON.parse(localStorage.getItem('rdo_diario')) || []; 
-    let historicoEntradas = JSON.parse(localStorage.getItem('rdo_entradas')) || [];
+    // BANCOS DE DADOS E ESTADOS
+    let usuarioLogado = localStorage.getItem('rdo_sessao_usuario') || null;
+    let usuarioPendenteTrocaSenha = null;
+
+    let bancoUsuarios = JSON.parse(localStorage.getItem('rdo_banco_usuarios')) || {
+        "master": { senha: "201607", perfil: "master", primeiroAcesso: false }
+    };
+
+    let obraAtiva = localStorage.getItem('rdo_obra_ativa') || "Obra Sefis";
+    let bancoObras = JSON.parse(localStorage.getItem('rdo_banco_multi_obras')) || {
+        "Obra Sefis": {
+            status: "ativa",
+            estoque: { "CIMENTO": 80, "AREIA (M3)": 15 },
+            diarioObra: [],
+            historicoEntradas: []
+        }
+    };
 
     document.getElementById('regData').valueAsDate = new Date();
 
-    function salvarDadosLocalStorage() {
-        localStorage.setItem('rdo_estoque', JSON.stringify(estoque));
-        localStorage.setItem('rdo_diario', JSON.stringify(diarioObra));
-        localStorage.setItem('rdo_entradas', JSON.stringify(historicoEntradas));
+    // CONTROLE DE SESSÃO E LOGIN
+    function fazerLogin() {
+        const u = document.getElementById('loginUser').value.trim();
+        const s = document.getElementById('loginSenha').value.trim();
+
+        if (bancoUsuarios[u] && bancoUsuarios[u].senha === s) {
+            // Verifica se é o primeiro acesso do usuário
+            if (bancoUsuarios[u].primeiroAcesso) {
+                usuarioPendenteTrocaSenha = u;
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('troca-senha-overlay').style.display = 'flex';
+            } else {
+                usuarioLogado = u;
+                localStorage.setItem('rdo_sessao_usuario', u);
+                document.getElementById('login-overlay').style.display = 'none';
+                inicializarSistema();
+            }
+        } else {
+            alert("Usuário ou senha inválidos!");
+        }
     }
 
-    function limparBancoDados() {
-        if(confirm("Atenção: Isso apagará todo o estoque e os relatórios salvos. Deseja continuar?")) {
-            localStorage.clear();
-            location.reload();
+    function salvarNovaSenhaPrimeiroAcesso() {
+        const nova = document.getElementById('novaSenhaInput').value.trim();
+        const confirma = document.getElementById('confirmaNovaSenhaInput').value.trim();
+
+        if (!nova) {
+            alert("Por favor, digite uma nova senha.");
+            return;
         }
+        if (nova === "123456") {
+            alert("A nova senha precisa ser diferente da senha padrão (123456).");
+            return;
+        }
+        if (nova !== confirma) {
+            alert("As senhas não coincidem!");
+            return;
+        }
+
+        // Atualiza a senha e remove a pendência do primeiro acesso
+        bancoUsuarios[usuarioPendenteTrocaSenha].senha = nova;
+        bancoUsuarios[usuarioPendenteTrocaSenha].primeiroAcesso = false;
+        
+        usuarioLogado = usuarioPendenteTrocaSenha;
+        usuarioPendenteTrocaSenha = null;
+
+        salvarBancoDados();
+        localStorage.setItem('rdo_sessao_usuario', usuarioLogado);
+
+        document.getElementById('troca-senha-overlay').style.display = 'none';
+        document.getElementById('novaSenhaInput').value = '';
+        document.getElementById('confirmaNovaSenhaInput').value = '';
+        
+        alert("Senha alterada com sucesso! Bem-vindo ao sistema.");
+        inicializarSistema();
+    }
+
+    function sairSistema() {
+        localStorage.removeItem('rdo_sessao_usuario');
+        location.reload();
+    }
+
+    function verificarSessao() {
+        if (!usuarioLogado || !bancoUsuarios[usuarioLogado]) {
+            document.getElementById('login-overlay').style.display = 'flex';
+        } else {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('infoUsuarioLogado').textContent = `Logado como: ${usuarioLogado} (${bancoUsuarios[usuarioLogado].perfil.toUpperCase()})`;
+            
+            if (bancoUsuarios[usuarioLogado].perfil === 'master') {
+                document.getElementById('btnMenuUsuarios').style.display = 'block';
+            }
+        }
+    }
+
+    function inicializarSistema() {
+        verificarSessao();
+        atualizarSeletorObras();
+        carregarDadosObraAtiva();
+        atualizarTabelaUsuarios();
+        atualizarTabelaArquivadas();
+    }
+
+    function salvarBancoDados() {
+        localStorage.setItem('rdo_banco_multi_obras', JSON.stringify(bancoObras));
+        localStorage.setItem('rdo_obra_ativa', obraAtiva);
+        localStorage.setItem('rdo_banco_usuarios', JSON.stringify(bancoUsuarios));
+    }
+
+    // GESTÃO DE OBRAS (ATIVAS / ARQUIVADAS)
+    function atualizarSeletorObras() {
+        const select = document.getElementById('seletorObraGlobal');
+        select.innerHTML = '';
+        let temAtiva = false;
+
+        for (let nomeObra in bancoObras) {
+            if (bancoObras[nomeObra].status === "ativa") {
+                const opt = document.createElement('option');
+                opt.value = nomeObra;
+                opt.textContent = nomeObra;
+                if (nomeObra === obraAtiva) opt.selected = true;
+                select.appendChild(opt);
+                temAtiva = true;
+            }
+        }
+
+        if (!temAtiva) {
+            bancoObras["Nova Obra Exemplo"] = { status: "ativa", estoque: {}, diarioObra: [], historicoEntradas: [] };
+            obraAtiva = "Nova Obra Exemplo";
+            atualizarSeletorObras();
+            return;
+        }
+
+        if (bancoObras[obraAtiva] && bancoObras[obraAtiva].status !== "ativa") {
+            for (let nomeObra in bancoObras) {
+                if (bancoObras[nomeObra].status === "ativa") {
+                    obraAtiva = nomeObra;
+                    break;
+                }
+            }
+        }
+
+        document.querySelectorAll('.nomeObraTxt').forEach(el => el.textContent = obraAtiva);
+    }
+
+    function trocarObraAtiva(novaObra) {
+        obraAtiva = novaObra;
+        salvarBancoDados();
+        document.querySelectorAll('.nomeObraTxt').forEach(el => el.textContent = obraAtiva);
+        atualizarTabelaEstoque();
+    }
+
+    function cadastrarNovaObra() {
+        const nome = prompt("Digite o nome da nova obra:");
+        if (!nome || nome.trim() === "") return;
+        const nomeFormatado = nome.trim();
+
+        if (bancoObras[nomeFormatado]) {
+            alert("Já existe uma obra com este nome no sistema!");
+            return;
+        }
+
+        bancoObras[nomeFormatado] = {
+            status: "ativa",
+            estoque: {},
+            diarioObra: [],
+            historicoEntradas: []
+        };
+
+        obraAtiva = nomeFormatado;
+        salvarBancoDados();
+        atualizarSeletorObras();
+        atualizarTabelaEstoque();
+        alert(`Obra "${nomeFormatado}" criada com sucesso!`);
+    }
+
+    function arquivarObraAtual() {
+        if (confirm(`Deseja realmente arquivar/finalizar a obra "${obraAtiva}"? Ela sairá da lista em execução.`)) {
+            bancoObras[obraAtiva].status = "arquivada";
+            salvarBancoDados();
+            atualizarSeletorObras();
+            atualizarTabelaArquivadas();
+            mostrarSecao('sec-estoque');
+        }
+    }
+
+    function desarquivarObra(nomeObra) {
+        bancoObras[nomeObra].status = "ativa";
+        obraAtiva = nomeObra;
+        salvarBancoDados();
+        atualizarSeletorObras();
+        atualizarTabelaArquivadas();
+        alert(`Obra "${nomeObra}" foi desarquivada e voltou a ser ativa!`);
+    }
+
+    function atualizarTabelaArquivadas() {
+        const tbody = document.getElementById('tabelaObrasArquivadas');
+        tbody.innerHTML = '';
+        let temArquivada = false;
+
+        for (let nome in bancoObras) {
+            if (bancoObras[nome].status === "arquivada") {
+                temArquivada = true;
+                tbody.innerHTML += `
+                    <tr>
+                        <td><strong>${nome}</strong></td>
+                        <td>${bancoObras[nome].diarioObra.length} RDOs salvos</td>
+                        <td><button class="btn-success" onclick="desarquivarObra('${nome}')">📂 Desarquivar</button></td>
+                    </tr>
+                `;
+            }
+        }
+        if (!temArquivada) {
+            tbody.innerHTML = `<tr><td colspan="3">Nenhuma obra arquivada no momento.</td></tr>`;
+        }
+    }
+
+    function carregarDadosObraAtiva() {
+        if (!bancoObras[obraAtiva]) {
+            bancoObras[obraAtiva] = { status: "ativa", estoque: {}, diarioObra: [], historicoEntradas: [] };
+        }
+        atualizarTabelaEstoque();
     }
 
     function mostrarSecao(idSecao) {
         document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
         document.getElementById(idSecao).classList.add('active');
-        if(idSecao === 'sec-estoque') atualizarTabelaEstoque();
+        if (idSecao === 'sec-estoque') atualizarTabelaEstoque();
+        if (idSecao === 'sec-arquivadas') atualizarTabelaArquivadas();
     }
 
-    // GESTÃO DE ESTOQUE
+    // GESTÃO DE USUÁRIOS (MASTER APENAS)
+    function cadastrarOuAtualizarUsuario() {
+        const u = document.getElementById('novoUserLogin').value.trim();
+        const p = document.getElementById('novoUserPerfil').value;
+
+        if (!u) {
+            alert("Preencha o nome do usuário!");
+            return;
+        }
+
+        bancoUsuarios[u] = { 
+            senha: "123456", 
+            perfil: p, 
+            primeiroAcesso: true 
+        };
+
+        salvarBancoDados();
+        document.getElementById('novoUserLogin').value = '';
+        atualizarTabelaUsuarios();
+        alert(`Usuário "${u}" criado com sucesso!\nSenha Padrão: 123456\nO usuário deverá redefinir a senha no primeiro acesso.`);
+    }
+
+    function resetarSenhaUsuario(u) {
+        if (confirm(`Deseja resetar a senha do usuário "${u}" para a senha padrão "123456"?`)) {
+            bancoUsuarios[u].senha = "123456";
+            bancoUsuarios[u].primeiroAcesso = true;
+            salvarBancoDados();
+            atualizarTabelaUsuarios();
+            alert(`A senha de "${u}" foi resetada para "123456".`);
+        }
+    }
+
+    function excluirUsuario(u) {
+        if (u === 'master') {
+            alert("Não é possível excluir o usuário master padrão do sistema.");
+            return;
+        }
+        if (u === usuarioLogado) {
+            alert("Você não pode excluir sua própria conta enquanto está logado nela.");
+            return;
+        }
+        if (confirm(`Deseja excluir o acesso do usuário ${u}?`)) {
+            delete bancoUsuarios[u];
+            salvarBancoDados();
+            atualizarTabelaUsuarios();
+        }
+    }
+
+    function atualizarTabelaUsuarios() {
+        const tbody = document.getElementById('tabelaUsuariosCorpo');
+        tbody.innerHTML = '';
+        for (let u in bancoUsuarios) {
+            const statusAcesso = bancoUsuarios[u].primeiroAcesso 
+                ? '<span style="color: var(--warning); font-weight: bold;">Pendente Troca de Senha</span>' 
+                : '<span style="color: var(--success); font-weight: bold;">Ativo</span>';
+
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${u}</strong></td>
+                    <td>${bancoUsuarios[u].perfil.toUpperCase()}</td>
+                    <td>${statusAcesso}</td>
+                    <td>
+                        ${u !== 'master' ? `
+                            <button class="btn-warning" onclick="resetarSenhaUsuario('${u}')" style="padding: 5px 10px; font-size: 0.85em;">Resetar Senha</button>
+                            <button class="btn-danger" onclick="excluirUsuario('${u}')" style="padding: 5px 10px; font-size: 0.85em;">Excluir</button>
+                        ` : 'Protegido'}
+                    </td>
+                </tr>
+            `;
+        }
+    }
+
+    // ALMOXARIFADO E RDO
     function atualizarTabelaEstoque() {
         const tbody = document.getElementById('tabelaEstoqueCorpo');
         tbody.innerHTML = '';
+        const estoque = bancoObras[obraAtiva].estoque;
+
+        if (Object.keys(estoque).length === 0) {
+            tbody.innerHTML = `<tr><td colspan="2">Nenhum material cadastrado nesta obra.</td></tr>`;
+            return;
+        }
+
         for (let mat in estoque) {
             tbody.innerHTML += `<tr><td><strong>${mat}</strong></td><td>${estoque[mat]} un/m³</td></tr>`;
         }
     }
 
     function reporEstoque() {
-        const nome = document.getElementById('novoMatNome').value.trim().toUpperCase(); 
+        const nome = document.getElementById('novoMatNome').value.trim().toUpperCase();
         const qtd = parseInt(document.getElementById('novoMatQtd').value);
 
         if (!nome || isNaN(qtd) || qtd <= 0) {
-            alert("Preencha o nome do material e uma quantidade válida!");
+            alert("Preencha o insumo e a quantidade!");
             return;
         }
 
-        estoque[nome] = (estoque[nome] || 0) + qtd;
-        historicoEntradas.push({
-            data: new Date().toLocaleString('pt-BR'),
-            material: nome,
-            quantidade: qtd
-        });
+        let objObra = bancoObras[obraAtiva];
+        objObra.estoque[nome] = (objObra.estoque[nome] || 0) + qtd;
+        objObra.historicoEntradas.push({ data: new Date().toLocaleString('pt-BR'), material: nome, quantidade: qtd });
 
-        salvarDadosLocalStorage();
+        salvarBancoDados();
         document.getElementById('novoMatNome').value = '';
         document.getElementById('novoMatQtd').value = '';
         atualizarTabelaEstoque();
-        alert(`Entrada de ${qtd} un de ${nome} registrada com sucesso.`);
     }
 
-    // FORMULÁRIO DINÂMICO DE RDO
     function adicionarLinhaMaterial() {
-        let opcoesHtml = '<option value="">Selecione o material...</option>';
-        for (let mat in estoque) {
-            opcoesHtml += `<option value="${mat}">${mat} (Disp: ${estoque[mat]})</option>`;
-        }
+        const estoque = bancoObras[obraAtiva].estoque;
+        let opcoes = '<option value="">Selecione...</option>';
+        for (let m in estoque) opcoes += `<option value="${m}">${m} (Disp: ${estoque[m]})</option>`;
 
         const div = document.createElement('div');
         div.className = 'item-dinamico';
-        div.innerHTML = `
-            <select class="mat-nome" style="flex:2">${opcoesHtml}</select>
-            <input type="number" class="mat-qtd" placeholder="Qtd Utilizada" style="flex:1" min="1">
-            <button type="button" class="btn-danger" onclick="this.parentElement.remove()">X</button>
-        `;
+        div.innerHTML = `<select class="mat-nome" style="flex:2">${opcoes}</select><input type="number" class="mat-qtd" placeholder="Qtd" style="flex:1"><button type="button" class="btn-danger" onclick="this.parentElement.remove()">X</button>`;
         document.getElementById('listaMateriaisUso').appendChild(div);
     }
 
     function adicionarLinhaEquipamento() {
         const div = document.createElement('div');
         div.className = 'item-dinamico';
-        div.innerHTML = `
-            <input type="text" class="eq-nome" placeholder="Equipamento (Ex: Betoneira 400L)" style="flex:2">
-            <select class="eq-status" style="flex:1">
-                <option value="Operando">Operando</option>
-                <option value="Parado">Parado</option>
-                <option value="Manutenção">Em Manutenção</option>
-            </select>
-            <button type="button" class="btn-danger" onclick="this.parentElement.remove()">X</button>
-        `;
+        div.innerHTML = `<input type="text" class="eq-nome" placeholder="Equipamento" style="flex:2"><select class="eq-status" style="flex:1"><option value="Operando">Operando</option><option value="Parado">Parado</option></select><button type="button" class="btn-danger" onclick="this.parentElement.remove()">X</button>`;
         document.getElementById('listaEquipamentos').appendChild(div);
     }
 
@@ -372,49 +720,43 @@
         const fase = document.getElementById('regFase').value;
 
         if (!dataRDO || !responsavel || !fase) {
-            alert("Preencha a Data, o Responsável Técnico e a Fase da Obra.");
+            alert("Preencha Data, Responsável e Fase.");
             return;
         }
 
-        // Processar Materiais
+        let objObra = bancoObras[obraAtiva];
         let materiaisUsados = {};
-        let erroEstoque = false;
-        let msgErro = "";
+        let erro = false;
 
-        document.querySelectorAll('#listaMateriaisUso .item-dinamico').forEach(linha => {
-            const nome = linha.querySelector('.mat-nome').value;
-            const qtd = parseInt(linha.querySelector('.mat-qtd').value);
-
+        document.querySelectorAll('#listaMateriaisUso .item-dinamico').forEach(l => {
+            const nome = l.querySelector('.mat-nome').value;
+            const qtd = parseInt(l.querySelector('.mat-qtd').value);
             if (nome && !isNaN(qtd) && qtd > 0) {
-                if ((estoque[nome] || 0) < qtd) {
-                    erroEstoque = true;
-                    msgErro += `- Estoque insuficiente de ${nome}. Disponível: ${estoque[nome] || 0}\n`;
+                if ((objObra.estoque[nome] || 0) < qtd) {
+                    erro = true;
                 } else {
                     materiaisUsados[nome] = qtd;
                 }
             }
         });
 
-        if (erroEstoque) {
-            alert("Falha no estoque:\n" + msgErro);
+        if (erro) {
+            alert("Erro: Saldo de estoque insuficiente para um ou mais materiais.");
             return;
         }
 
-        // Dar baixa no estoque
-        for (let mat in materiaisUsados) {
-            estoque[mat] -= materiaisUsados[mat];
-        }
+        for (let m in materiaisUsados) objObra.estoque[m] -= materiaisUsados[m];
 
-        // Processar Equipamentos
         let equipamentos = [];
-        document.querySelectorAll('#listaEquipamentos .item-dinamico').forEach(linha => {
-            const nome = linha.querySelector('.eq-nome').value.trim();
-            const status = linha.querySelector('.eq-status').value;
+        document.querySelectorAll('#listaEquipamentos .item-dinamico').forEach(l => {
+            const nome = l.querySelector('.eq-nome').value.trim();
+            const status = l.querySelector('.eq-status').value;
             if (nome) equipamentos.push({ nome, status });
         });
 
-        // Criar Objeto RDO
-        const rdo = {
+        objObra.diarioObra.unshift({
+            obra: obraAtiva,
+            autor: usuarioLogado,
             data: dataRDO.split('-').reverse().join('/'),
             responsavel,
             fase,
@@ -431,100 +773,61 @@
             },
             equipamentos,
             materiaisUsados,
-            ocorrencias: document.getElementById('regOcorrencias').value || "Sem ocorrências registradas."
-        };
+            ocorrencias: document.getElementById('regOcorrencias').value || "Sem ocorrências."
+        });
 
-        diarioObra.unshift(rdo); // Adiciona o mais recente no início
-        salvarDadosLocalStorage();
-
-        // Limpar formulário
+        salvarBancoDados();
         document.getElementById('listaMateriaisUso').innerHTML = '';
         document.getElementById('listaEquipamentos').innerHTML = '';
-        document.getElementById('regOcorrencias').value = '';
-        
-        alert("RDO salvo e estoque atualizado com sucesso!");
+        alert("RDO registrado com sucesso!");
         mostrarSecao('sec-relatorio');
         gerarRelatorio('diario');
     }
 
-    // EMISSÃO DE RELATÓRIOS
     function gerarRelatorio(tipo) {
         const container = document.getElementById('conteudoRelatorio');
+        let objObra = bancoObras[obraAtiva];
         let html = '';
 
         if (tipo === 'diario') {
-            if (diarioObra.length === 0) {
-                html = `<p>Nenhum Diário de Obra (RDO) foi registrado até o momento.</p>`;
+            if (objObra.diarioObra.length === 0) {
+                html = `<p>Nenhum RDO registrado para ${obraAtiva}.</p>`;
             } else {
-                diarioObra.forEach((rdo, i) => {
-                    let matsHtml = '<ul>';
-                    for (let m in rdo.materiaisUsados) {
-                        matsHtml += `<li>${m}: ${rdo.materiaisUsados[m]} un/m³</li>`;
-                    }
-                    if (Object.keys(rdo.materiaisUsados).length === 0) matsHtml += '<li>Nenhum material retirado.</li>';
-                    matsHtml += '</ul>';
-
-                    let eqHtml = '<ul>';
-                    rdo.equipamentos.forEach(eq => {
-                        eqHtml += `<li>${eq.nome} - <strong>Status: ${eq.status}</strong></li>`;
-                    });
-                    if (rdo.equipamentos.length === 0) eqHtml += '<li>Nenhum equipamento registrado.</li>';
-                    eqHtml += '</ul>';
+                objObra.diarioObra.forEach(rdo => {
+                    let mats = '<ul>';
+                    for (let m in rdo.materiaisUsados) mats += `<li>${m}: ${rdo.materiaisUsados[m]}</li>`;
+                    mats += '</ul>';
 
                     html += `
                         <div class="relatorio-card">
-                            <div style="display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:5px;">
-                                <h3>RELATÓRIO DIÁRIO DE OBRA (RDO)</h3>
-                                <h3>Data: ${rdo.data}</h3>
-                            </div>
-                            <p><strong>Responsável Técnico:</strong> ${rdo.responsavel} | <strong>Fase/Etapa:</strong> ${rdo.fase}</p>
-                            
-                            <hr>
-                            <p><strong>Condições Climáticas:</strong> Manhã: ${rdo.clima.manha} | Tarde: ${rdo.clima.tarde} | <strong>Status:</strong> ${rdo.clima.condicao}</p>
-                            
-                            <hr>
-                            <p><strong>Efetivo em Obra:</strong> Mestre: ${rdo.efetivo.mestre} | Pedreiros: ${rdo.efetivo.pedreiro} | Serventes: ${rdo.efetivo.servente} | Terceirizados: ${rdo.efetivo.outros}</p>
-                            
-                            <hr>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
-                                <div><strong>Equipamentos em Obra:</strong>${eqHtml}</div>
-                                <div><strong>Materiais Utilizados:</strong>${matsHtml}</div>
-                            </div>
-                            
-                            <hr>
-                            <p><strong>Ocorrências / Observações Técnicas / Segurança:</strong></p>
-                            <p style="background:#f1f5f9; padding:10px; border-radius:4px;">${rdo.ocorrencias}</p>
-
+                            <h3>RDO - ${rdo.data} (Elaborado por: ${rdo.autor || 'Sistema'})</h3>
+                            <p><strong>Obra:</strong> ${rdo.obra} | <strong>Responsável:</strong> ${rdo.responsavel} | <strong>Fase:</strong> ${rdo.fase}</p>
+                            <p><strong>Clima:</strong> Manhã: ${rdo.clima.manha} | Tarde: ${rdo.clima.tarde} (${rdo.clima.condicao})</p>
+                            <p><strong>Efetivo:</strong> Mestre: ${rdo.efetivo.mestre} | Pedreiros: ${rdo.efetivo.pedreiro} | Serventes: ${rdo.efetivo.servente} | Outros: ${rdo.efetivo.outros}</p>
+                            <p><strong>Materiais Baixados:</strong>${mats}</p>
+                            <p><strong>Ocorrências:</strong> ${rdo.ocorrencias}</p>
                             <div class="ass-box">
-                                <div class="ass-linha">Responsável Técnico (Engenharia)</div>
-                                <div class="ass-linha">Fiscalização / Contratante</div>
+                                <div class="ass-linha">Engenharia Responsável</div>
+                                <div class="ass-linha">Fiscalização</div>
                             </div>
                         </div>
                     `;
                 });
             }
-
         } else if (tipo === 'estoque') {
-            html = `<h2>Posição de Estoque no Almoxarifado</h2><p>Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}</p>`;
-            html += `<table><thead><tr><th>Material Insumo</th><th>Quantidade Disponível</th></tr></thead><tbody>`;
-            for (let m in estoque) {
-                html += `<tr><td>${m}</td><td>${estoque[m]}</td></tr>`;
-            }
+            html = `<h2>Estoque - ${obraAtiva}</h2><table><thead><tr><th>Insumo</th><th>Qtd</th></tr></thead><tbody>`;
+            for (let m in objObra.estoque) html += `<tr><td>${m}</td><td>${objObra.estoque[m]}</td></tr>`;
             html += `</tbody></table>`;
-
         } else if (tipo === 'entradas') {
-            html = `<h2>Histórico de Entradas de Insumos</h2><p>Data de Emissão: ${new Date().toLocaleDateString('pt-BR')}</p>`;
-            html += `<table><thead><tr><th>Data/Hora Entrada</th><th>Material</th><th>Qtd Adicionada</th></tr></thead><tbody>`;
-            historicoEntradas.forEach(ent => {
-                html += `<tr><td>${ent.data}</td><td>${ent.material}</td><td>${ent.quantidade}</td></tr>`;
-            });
+            html = `<h2>Histórico de Entregas - ${obraAtiva}</h2><table><thead><tr><th>Data</th><th>Insumo</th><th>Qtd</th></tr></thead><tbody>`;
+            objObra.historicoEntradas.forEach(e => html += `<tr><td>${e.data}</td><td>${e.material}</td><td>${e.quantidade}</td></tr>`);
             html += `</tbody></table>`;
         }
-
         container.innerHTML = html;
     }
 
-    atualizarTabelaEstoque();
+    // INICIAR
+    inicializarSistema();
 </script>
 </body>
 </html>

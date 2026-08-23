@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema RDO Multi-Obras & Usuários</title>
+    <title>Sistema RDO Multi-Obras & Auditoria</title>
     <style>
         :root {
             --primary: #1e3a8a;
@@ -25,7 +25,7 @@
         }
 
         .container {
-            max-width: 1000px;
+            max-width: 1050px;
             margin: auto;
             background: var(--card-bg);
             padding: 25px;
@@ -39,19 +39,43 @@
             padding: 15px;
             border-radius: 8px;
             margin-bottom: 20px;
+        }
+
+        .header-obra-top {
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
             gap: 10px;
+            margin-bottom: 12px;
         }
 
         .header-obra select {
             font-size: 1.05em;
             font-weight: bold;
             padding: 8px;
-            width: auto;
             min-width: 250px;
+        }
+
+        .detalhes-obra-box {
+            background: #ffffff;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-size: 0.9em;
+        }
+
+        .detalhes-obra-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .acoes-localizacao {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
         }
 
         h1, h2, h3 { color: var(--primary); }
@@ -66,13 +90,14 @@
         }
 
         button {
-            padding: 10px 18px;
+            padding: 9px 15px;
             background-color: var(--secondary);
             color: white;
             border: none;
             border-radius: 6px;
             cursor: pointer;
             font-weight: 600;
+            font-size: 0.9em;
             transition: opacity 0.2s;
         }
 
@@ -133,6 +158,17 @@
             border-radius: 8px;
             background: #ffffff;
             page-break-inside: avoid;
+            position: relative;
+        }
+
+        .rdo-auditoria-tag {
+            background: #f1f5f9;
+            border-left: 4px solid var(--secondary);
+            padding: 8px 12px;
+            font-size: 0.82em;
+            color: #475569;
+            margin-bottom: 15px;
+            border-radius: 0 4px 4px 0;
         }
 
         .ass-box {
@@ -151,8 +187,8 @@
             font-size: 0.85em;
         }
 
-        /* OVERLAYS DE LOGIN E PRIMEIRO ACESSO */
-        #login-overlay, #troca-senha-overlay {
+        /* OVERLAYS DE LOGIN E MODAIS */
+        #login-overlay, #troca-senha-overlay, #modal-obra-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(15, 23, 42, 0.85);
@@ -165,8 +201,37 @@
             background: white;
             padding: 30px;
             border-radius: 10px;
-            width: 350px;
+            width: 400px;
+            max-width: 90%;
             box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        }
+
+        /* CAPTCHA CHECKBOX STYLES */
+        .captcha-box {
+            background: #f8fafc;
+            padding: 12px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+        }
+
+        .captcha-box input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            accent-color: var(--secondary);
+        }
+
+        .captcha-box label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: 600;
+            color: #334155;
+            user-select: none;
         }
 
         @media print {
@@ -194,6 +259,12 @@
             <label>Senha</label>
             <input type="password" id="loginSenha" placeholder="Sua senha">
         </div>
+        
+        <div class="captcha-box" onclick="document.getElementById('loginCaptchaCheckbox').click()">
+            <input type="checkbox" id="loginCaptchaCheckbox" onclick="event.stopPropagation()">
+            <label for="loginCaptchaCheckbox">Não sou um robô</label>
+        </div>
+
         <button class="btn-success" style="width: 100%;" onclick="fazerLogin()">Entrar no Sistema</button>
     </div>
 </div>
@@ -217,6 +288,33 @@
     </div>
 </div>
 
+<!-- MODAL CADASTRAR/EDITAR OBRA -->
+<div id="modal-obra-overlay" style="display: none;">
+    <div class="login-box">
+        <h2 id="modalObraTitulo">🏗️ Cadastrar / Editar Obra</h2>
+        <input type="hidden" id="obraNomeOriginal">
+        <div class="form-group">
+            <label>Nome da Obra *</label>
+            <input type="text" id="modalObraNome" placeholder="Ex: Obra Residencial Parque">
+        </div>
+        <div class="form-group">
+            <label>Endereço Completo</label>
+            <input type="text" id="modalObraEndereco" placeholder="Ex: Av. Principal, 500 - Centro, Cidade - UF">
+        </div>
+        <div class="form-group">
+            <label>Coordenadas GPS (Lat, Long)</label>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="modalObraCoordenadas" placeholder="Ex: -15.7801, -47.9292">
+                <button type="button" class="btn-sub" title="Capturar localização via GPS do dispositivo" onclick="obterGPSModal()">📍 GPS</button>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn-success" style="flex: 1;" onclick="salvarDadosObraModal()">Salvar</button>
+            <button class="btn-danger" style="flex: 1;" onclick="fecharModalObra()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
 <div class="container">
     <h1 class="no-print">
         <span>Sistema RDO - Multi-Obras</span>
@@ -226,22 +324,41 @@
         </div>
     </h1>
     
-    <!-- SELETOR DE OBRA ATIVA -->
+    <!-- SELETOR E DETALHES DA OBRA ATIVA -->
     <div class="header-obra no-print">
-        <div>
-            <label style="font-size: 1.1em; color: var(--primary);">🏗️ Obra Ativa em Execução:</label>
-            <select id="seletorObraGlobal" onchange="trocarObraAtiva(this.value)"></select>
+        <div class="header-obra-top">
+            <div>
+                <label style="font-size: 1.1em; color: var(--primary);">🏗️ Obra Ativa em Execução:</label>
+                <select id="seletorObraGlobal" onchange="trocarObraAtiva(this.value)"></select>
+            </div>
+            <div style="display:flex; gap: 8px;">
+                <button class="btn-success" onclick="abrirModalObra('criar')">+ Nova Obra</button>
+                <button class="btn-sub" onclick="abrirModalObra('editar')">✏️ Editar Obra</button>
+                <button class="btn-warning" onclick="arquivarObraAtual()">📂 Arquivar Obra</button>
+            </div>
         </div>
-        <div style="display:flex; gap: 8px;">
-            <button class="btn-success" onclick="cadastrarNovaObra()">+ Nova Obra</button>
-            <button class="btn-warning" onclick="arquivarObraAtual()">📂 Arquivar Obra Atual</button>
+
+        <div class="detalhes-obra-box">
+            <div class="detalhes-obra-grid">
+                <div>
+                    <strong>📍 Endereço:</strong> <span id="lblObraEndereco">Não informado</span>
+                </div>
+                <div>
+                    <strong>🌐 Coordenadas:</strong> <span id="lblObraCoordenadas">Não informadas</span>
+                </div>
+            </div>
+            <div class="acoes-localizacao">
+                <button class="btn-sub" style="font-size: 0.8em; padding: 4px 10px;" onclick="obterEAtualizarGPSDireto()">📍 Capturar GPS Agora</button>
+                <button class="btn-secondary" style="font-size: 0.8em; padding: 4px 10px;" onclick="abrirNoMapa()">🗺️ Abrir no Mapa</button>
+                <button class="btn-success" style="font-size: 0.8em; padding: 4px 10px;" onclick="compartilharLocalizacao()">📲 Compartilhar Localização</button>
+            </div>
         </div>
     </div>
 
     <!-- MENU DE NAVEGAÇÃO -->
     <div class="menu-bar no-print">
         <button onclick="mostrarSecao('sec-estoque')">📦 Almoxarifado</button>
-        <button onclick="mostrarSecao('sec-registro')">📝 Novo RDO Diário</button>
+        <button onclick="prepararNovoRDO(); mostrarSecao('sec-registro');">📝 Novo RDO Diário</button>
         <button onclick="mostrarSecao('sec-relatorio'); gerarRelatorio('diario');">📊 Central de Relatórios</button>
         <button class="btn-sub" onclick="mostrarSecao('sec-arquivadas')">📁 Obras Arquivadas</button>
         <button id="btnMenuUsuarios" class="btn-sub" style="display:none;" onclick="mostrarSecao('sec-usuarios')">👥 Gestão de Usuários</button>
@@ -267,9 +384,11 @@
         </table>
     </div>
 
-    <!-- SEÇÃO 2: REGISTRO RDO -->
+    <!-- SEÇÃO 2: REGISTRO / EDIÇÃO RDO -->
     <div id="sec-registro" class="section no-print">
-        <h2>Lançamento do Diário de Obra - <span class="nomeObraTxt"></span></h2>
+        <h2 id="tituloFormRDO">Lançamento do Diário de Obra - <span class="nomeObraTxt"></span></h2>
+        <input type="hidden" id="editRdoIndex" value="-1">
+        
         <div class="grid-3">
             <div class="form-group"><label>Data da Vistoria</label><input type="date" id="regData"></div>
             <div class="form-group"><label>Engenheiro / Fiscal Responsável</label><input type="text" id="regResponsavel" placeholder="Ex: Eng. Carlos Silva"></div>
@@ -302,7 +421,10 @@
         <h3>5. Ocorrências / Observações</h3>
         <div class="form-group"><textarea id="regOcorrencias" rows="3" placeholder="Descreva ocorrências do dia..."></textarea></div>
 
-        <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; font-size: 1.1em; padding: 12px;">💾 Registrar RDO</button>
+        <div style="display: flex; gap: 10px;">
+            <button type="button" onclick="salvarRDO()" class="btn-success" style="flex: 2; font-size: 1.1em; padding: 12px;">💾 Salvar RDO</button>
+            <button type="button" id="btnCancelarEdicaoRDO" onclick="prepararNovoRDO()" class="btn-danger" style="flex: 1; font-size: 1.1em; padding: 12px; display: none;">Cancelar Edição</button>
+        </div>
     </div>
 
     <!-- SEÇÃO 3: RELATÓRIOS -->
@@ -315,6 +437,7 @@
             <button class="btn-sub" onclick="gerarRelatorio('diario')">📋 RDOs da Obra</button>
             <button class="btn-sub" onclick="gerarRelatorio('estoque')">📦 Estoque da Obra</button>
             <button class="btn-sub" onclick="gerarRelatorio('entradas')">🚚 Entradas de Insumos</button>
+            <button class="btn-sub" style="background:#475569;" onclick="gerarRelatorio('auditoria')">📜 Histórico & Auditoria</button>
         </div>
         <div id="conteudoRelatorio"></div>
     </div>
@@ -322,9 +445,16 @@
     <!-- SEÇÃO 4: OBRAS ARQUIVADAS -->
     <div id="sec-arquivadas" class="section">
         <h2>Obras Arquivadas / Finalizadas</h2>
-        <p style="color: #64748b;">Estas obras foram concluídas e ocultadas da lista de execução diária. Você pode desarquivá-las quando necessário.</p>
+        <p style="color: #64748b;">Estas obras foram concluídas. Você pode verificar o histórico ou reativá-las a qualquer momento.</p>
         <table>
-            <thead><tr><th>Nome da Obra</th><th>Total de RDOs</th><th>Ações</th></tr></thead>
+            <thead>
+                <tr>
+                    <th>Nome da Obra</th>
+                    <th>Total RDOs</th>
+                    <th>Último Status / Arquivamento</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
             <tbody id="tabelaObrasArquivadas"></tbody>
         </table>
     </div>
@@ -358,7 +488,7 @@
 </div>
 
 <script>
-    // BANCOS DE DADOS E ESTADOS
+    // ESTADOS E BANCOS DE DADOS
     let usuarioLogado = localStorage.getItem('rdo_sessao_usuario') || null;
     let usuarioPendenteTrocaSenha = null;
 
@@ -370,21 +500,45 @@
     let bancoObras = JSON.parse(localStorage.getItem('rdo_banco_multi_obras')) || {
         "Obra Sefis": {
             status: "ativa",
+            endereco: "Av. Central, 100 - Centro",
+            coordenadas: "-15.7801, -47.9292",
             estoque: { "CIMENTO": 80, "AREIA (M3)": 15 },
             diarioObra: [],
-            historicoEntradas: []
+            historicoEntradas: [],
+            logAuditoria: [
+                { dataHora: new Date().toLocaleString('pt-BR'), usuario: "master", acao: "Criação de Obra", detalhes: "Obra criada no sistema." }
+            ]
         }
     };
 
     document.getElementById('regData').valueAsDate = new Date();
 
+    // REGISTRO DE AUDITORIA DE AÇÕES DA OBRA
+    function registrarLogAuditoria(nomeObra, acao, detalhes) {
+        if (!bancoObras[nomeObra]) return;
+        if (!bancoObras[nomeObra].logAuditoria) {
+            bancoObras[nomeObra].logAuditoria = [];
+        }
+        bancoObras[nomeObra].logAuditoria.unshift({
+            dataHora: new Date().toLocaleString('pt-BR'),
+            usuario: usuarioLogado || 'Sistema',
+            acao: acao,
+            detalhes: detalhes
+        });
+    }
+
     // CONTROLE DE SESSÃO E LOGIN
     function fazerLogin() {
         const u = document.getElementById('loginUser').value.trim();
         const s = document.getElementById('loginSenha').value.trim();
+        const eHumano = document.getElementById('loginCaptchaCheckbox').checked;
+
+        if (!eHumano) {
+            alert("Por favor, confirme que você não é um robô marcando a opção.");
+            return;
+        }
 
         if (bancoUsuarios[u] && bancoUsuarios[u].senha === s) {
-            // Verifica se é o primeiro acesso do usuário
             if (bancoUsuarios[u].primeiroAcesso) {
                 usuarioPendenteTrocaSenha = u;
                 document.getElementById('login-overlay').style.display = 'none';
@@ -397,6 +551,7 @@
             }
         } else {
             alert("Usuário ou senha inválidos!");
+            document.getElementById('loginCaptchaCheckbox').checked = false;
         }
     }
 
@@ -417,7 +572,6 @@
             return;
         }
 
-        // Atualiza a senha e remove a pendência do primeiro acesso
         bancoUsuarios[usuarioPendenteTrocaSenha].senha = nova;
         bancoUsuarios[usuarioPendenteTrocaSenha].primeiroAcesso = false;
         
@@ -442,6 +596,7 @@
 
     function verificarSessao() {
         if (!usuarioLogado || !bancoUsuarios[usuarioLogado]) {
+            document.getElementById('loginCaptchaCheckbox').checked = false;
             document.getElementById('login-overlay').style.display = 'flex';
         } else {
             document.getElementById('login-overlay').style.display = 'none';
@@ -467,7 +622,7 @@
         localStorage.setItem('rdo_banco_usuarios', JSON.stringify(bancoUsuarios));
     }
 
-    // GESTÃO DE OBRAS (ATIVAS / ARQUIVADAS)
+    // GESTÃO DE OBRAS & AUDITORIA
     function atualizarSeletorObras() {
         const select = document.getElementById('seletorObraGlobal');
         select.innerHTML = '';
@@ -485,7 +640,15 @@
         }
 
         if (!temAtiva) {
-            bancoObras["Nova Obra Exemplo"] = { status: "ativa", estoque: {}, diarioObra: [], historicoEntradas: [] };
+            bancoObras["Nova Obra Exemplo"] = { 
+                status: "ativa", 
+                endereco: "", 
+                coordenadas: "", 
+                estoque: {}, 
+                diarioObra: [], 
+                historicoEntradas: [],
+                logAuditoria: [{ dataHora: new Date().toLocaleString('pt-BR'), usuario: usuarioLogado || "master", acao: "Criação de Obra", detalhes: "Obra criada por padrão." }]
+            };
             obraAtiva = "Nova Obra Exemplo";
             atualizarSeletorObras();
             return;
@@ -501,42 +664,163 @@
         }
 
         document.querySelectorAll('.nomeObraTxt').forEach(el => el.textContent = obraAtiva);
+        atualizarExibicaoDetalhesObra();
+    }
+
+    function atualizarExibicaoDetalhesObra() {
+        const obj = bancoObras[obraAtiva] || {};
+        document.getElementById('lblObraEndereco').textContent = obj.endereco || 'Não informado';
+        document.getElementById('lblObraCoordenadas').textContent = obj.coordenadas || 'Não informadas';
     }
 
     function trocarObraAtiva(novaObra) {
         obraAtiva = novaObra;
         salvarBancoDados();
         document.querySelectorAll('.nomeObraTxt').forEach(el => el.textContent = obraAtiva);
+        atualizarExibicaoDetalhesObra();
         atualizarTabelaEstoque();
     }
 
-    function cadastrarNovaObra() {
-        const nome = prompt("Digite o nome da nova obra:");
-        if (!nome || nome.trim() === "") return;
-        const nomeFormatado = nome.trim();
+    // MODAL DE CADASTRO / EDIÇÃO DE OBRA
+    function abrirModalObra(modo) {
+        const modal = document.getElementById('modal-obra-overlay');
+        const titulo = document.getElementById('modalObraTitulo');
+        
+        if (modo === 'criar') {
+            titulo.textContent = '🏗️ Cadastrar Nova Obra';
+            document.getElementById('obraNomeOriginal').value = '';
+            document.getElementById('modalObraNome').value = '';
+            document.getElementById('modalObraEndereco').value = '';
+            document.getElementById('modalObraCoordenadas').value = '';
+        } else {
+            titulo.textContent = '✏️ Editar Dados da Obra';
+            const obj = bancoObras[obraAtiva];
+            document.getElementById('obraNomeOriginal').value = obraAtiva;
+            document.getElementById('modalObraNome').value = obraAtiva;
+            document.getElementById('modalObraEndereco').value = obj.endereco || '';
+            document.getElementById('modalObraCoordenadas').value = obj.coordenadas || '';
+        }
+        modal.style.display = 'flex';
+    }
 
-        if (bancoObras[nomeFormatado]) {
-            alert("Já existe uma obra com este nome no sistema!");
+    function fecharModalObra() {
+        document.getElementById('modal-obra-overlay').style.display = 'none';
+    }
+
+    function salvarDadosObraModal() {
+        const nomeOriginal = document.getElementById('obraNomeOriginal').value;
+        const novoNome = document.getElementById('modalObraNome').value.trim();
+        const endereco = document.getElementById('modalObraEndereco').value.trim();
+        const coordenadas = document.getElementById('modalObraCoordenadas').value.trim();
+
+        if (!novoNome) {
+            alert("O nome da obra é obrigatório.");
             return;
         }
 
-        bancoObras[nomeFormatado] = {
-            status: "ativa",
-            estoque: {},
-            diarioObra: [],
-            historicoEntradas: []
-        };
+        if (novoNome !== nomeOriginal && bancoObras[novoNome]) {
+            alert("Já existe uma obra cadastrada com esse nome!");
+            return;
+        }
 
-        obraAtiva = nomeFormatado;
+        if (nomeOriginal && nomeOriginal !== novoNome) {
+            bancoObras[novoNome] = bancoObras[nomeOriginal];
+            delete bancoObras[nomeOriginal];
+            registrarLogAuditoria(novoNome, "Edição do Nome da Obra", `Nome alterado de "${nomeOriginal}" para "${novoNome}".`);
+        } else if (!nomeOriginal) {
+            bancoObras[novoNome] = {
+                status: "ativa",
+                estoque: {},
+                diarioObra: [],
+                historicoEntradas: [],
+                logAuditoria: []
+            };
+            registrarLogAuditoria(novoNome, "Criação de Obra", "Obra criada no sistema.");
+        }
+
+        bancoObras[novoNome].endereco = endereco;
+        bancoObras[novoNome].coordenadas = coordenadas;
+
+        registrarLogAuditoria(novoNome, "Alteração de Dados Cadastrais", `Endereço: "${endereco}" | GPS: "${coordenadas}".`);
+
+        obraAtiva = novoNome;
         salvarBancoDados();
+        fecharModalObra();
         atualizarSeletorObras();
         atualizarTabelaEstoque();
-        alert(`Obra "${nomeFormatado}" criada com sucesso!`);
     }
 
+    // GEOLOCALIZAÇÃO E COMPARTILHAMENTO
+    function obterGPSModal() {
+        if (!navigator.geolocation) {
+            alert("Navegador não suporta geolocalização.");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude.toFixed(6);
+                const lng = pos.coords.longitude.toFixed(6);
+                document.getElementById('modalObraCoordenadas').value = `${lat}, ${lng}`;
+            },
+            (err) => alert("Erro ao obter localização GPS: " + err.message)
+        );
+    }
+
+    function obterEAtualizarGPSDireto() {
+        if (!navigator.geolocation) {
+            alert("Navegador não suporta geolocalização.");
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const lat = pos.coords.latitude.toFixed(6);
+                const lng = pos.coords.longitude.toFixed(6);
+                const coords = `${lat}, ${lng}`;
+                bancoObras[obraAtiva].coordenadas = coords;
+                registrarLogAuditoria(obraAtiva, "Atualização de GPS", `Novas coordenadas GPS obtidas: ${coords}.`);
+                salvarBancoDados();
+                atualizarExibicaoDetalhesObra();
+                alert(`Coordenadas atualizadas com sucesso: ${coords}`);
+            },
+            (err) => alert("Erro ao obter localização GPS: " + err.message)
+        );
+    }
+
+    function obterLinkMapa() {
+        const coords = bancoObras[obraAtiva]?.coordenadas;
+        const endereco = bancoObras[obraAtiva]?.endereco;
+        if (coords) return `https://www.google.com/maps?q=${coords.replace(/\s+/g, '')}`;
+        if (endereco) return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(endereco)}`;
+        return null;
+    }
+
+    function abrirNoMapa() {
+        const link = obterLinkMapa();
+        if (link) window.open(link, '_blank');
+        else alert("Cadastre as coordenadas ou o endereço da obra para abrir no mapa.");
+    }
+
+    function compartilharLocalizacao() {
+        const link = obterLinkMapa();
+        const obj = bancoObras[obraAtiva];
+        if (!link) { alert("Nenhum endereço ou coordenada cadastrada para compartilhar."); return; }
+
+        const textoCompartilhar = `📍 Localização da Obra: ${obraAtiva}\nEndereço: ${obj.endereco || 'Não informado'}\nLink no Mapa: ${link}`;
+
+        if (navigator.share) {
+            navigator.share({ title: `Localização - ${obraAtiva}`, text: textoCompartilhar, url: link }).catch(() => {});
+        } else {
+            navigator.clipboard.writeText(textoCompartilhar).then(() => {
+                alert("Link de localização copiado para a área de transferência!\n\n" + textoCompartilhar);
+            });
+        }
+    }
+
+    // ARQUIVAR / DESARQUIVAR COM AUDITORIA
     function arquivarObraAtual() {
-        if (confirm(`Deseja realmente arquivar/finalizar a obra "${obraAtiva}"? Ela sairá da lista em execução.`)) {
+        if (confirm(`Deseja realmente arquivar/finalizar a obra "${obraAtiva}"?`)) {
             bancoObras[obraAtiva].status = "arquivada";
+            registrarLogAuditoria(obraAtiva, "Arquivamento de Obra", "Status da obra alterado para Finalizada/Arquivada.");
             salvarBancoDados();
             atualizarSeletorObras();
             atualizarTabelaArquivadas();
@@ -547,10 +831,11 @@
     function desarquivarObra(nomeObra) {
         bancoObras[nomeObra].status = "ativa";
         obraAtiva = nomeObra;
+        registrarLogAuditoria(nomeObra, "Desarquivamento de Obra", "Status da obra reativado para Execução Diária.");
         salvarBancoDados();
         atualizarSeletorObras();
         atualizarTabelaArquivadas();
-        alert(`Obra "${nomeObra}" foi desarquivada e voltou a ser ativa!`);
+        alert(`Obra "${nomeObra}" foi desarquivada com sucesso!`);
     }
 
     function atualizarTabelaArquivadas() {
@@ -561,23 +846,30 @@
         for (let nome in bancoObras) {
             if (bancoObras[nome].status === "arquivada") {
                 temArquivada = true;
+                // Busca no log quem fez o arquivamento
+                const logArq = (bancoObras[nome].logAuditoria || []).find(l => l.acao === "Arquivamento de Obra");
+                const infoArq = logArq 
+                    ? `Arquivado por: <strong>${logArq.usuario}</strong> em ${logArq.dataHora}`
+                    : `Arquivado no sistema`;
+
                 tbody.innerHTML += `
                     <tr>
                         <td><strong>${nome}</strong></td>
-                        <td>${bancoObras[nome].diarioObra.length} RDOs salvos</td>
+                        <td>${(bancoObras[nome].diarioObra || []).length} RDOs salvos</td>
+                        <td><span style="font-size:0.85em; color:#64748b;">${infoArq}</span></td>
                         <td><button class="btn-success" onclick="desarquivarObra('${nome}')">📂 Desarquivar</button></td>
                     </tr>
                 `;
             }
         }
         if (!temArquivada) {
-            tbody.innerHTML = `<tr><td colspan="3">Nenhuma obra arquivada no momento.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="4">Nenhuma obra arquivada no momento.</td></tr>`;
         }
     }
 
     function carregarDadosObraAtiva() {
         if (!bancoObras[obraAtiva]) {
-            bancoObras[obraAtiva] = { status: "ativa", estoque: {}, diarioObra: [], historicoEntradas: [] };
+            bancoObras[obraAtiva] = { status: "ativa", endereco: "", coordenadas: "", estoque: {}, diarioObra: [], historicoEntradas: [], logAuditoria: [] };
         }
         atualizarTabelaEstoque();
     }
@@ -589,30 +881,22 @@
         if (idSecao === 'sec-arquivadas') atualizarTabelaArquivadas();
     }
 
-    // GESTÃO DE USUÁRIOS (MASTER APENAS)
+    // GESTÃO DE USUÁRIOS
     function cadastrarOuAtualizarUsuario() {
         const u = document.getElementById('novoUserLogin').value.trim();
         const p = document.getElementById('novoUserPerfil').value;
 
-        if (!u) {
-            alert("Preencha o nome do usuário!");
-            return;
-        }
+        if (!u) { alert("Preencha o nome do usuário!"); return; }
 
-        bancoUsuarios[u] = { 
-            senha: "123456", 
-            perfil: p, 
-            primeiroAcesso: true 
-        };
-
+        bancoUsuarios[u] = { senha: "123456", perfil: p, primeiroAcesso: true };
         salvarBancoDados();
         document.getElementById('novoUserLogin').value = '';
         atualizarTabelaUsuarios();
-        alert(`Usuário "${u}" criado com sucesso!\nSenha Padrão: 123456\nO usuário deverá redefinir a senha no primeiro acesso.`);
+        alert(`Usuário "${u}" criado com sucesso!\nSenha Padrão: 123456`);
     }
 
     function resetarSenhaUsuario(u) {
-        if (confirm(`Deseja resetar a senha do usuário "${u}" para a senha padrão "123456"?`)) {
+        if (confirm(`Deseja resetar a senha do usuário "${u}" para "123456"?`)) {
             bancoUsuarios[u].senha = "123456";
             bancoUsuarios[u].primeiroAcesso = true;
             salvarBancoDados();
@@ -622,14 +906,8 @@
     }
 
     function excluirUsuario(u) {
-        if (u === 'master') {
-            alert("Não é possível excluir o usuário master padrão do sistema.");
-            return;
-        }
-        if (u === usuarioLogado) {
-            alert("Você não pode excluir sua própria conta enquanto está logado nela.");
-            return;
-        }
+        if (u === 'master') { alert("Não é possível excluir o usuário master."); return; }
+        if (u === usuarioLogado) { alert("Você não pode excluir sua própria conta enquanto logado."); return; }
         if (confirm(`Deseja excluir o acesso do usuário ${u}?`)) {
             delete bancoUsuarios[u];
             salvarBancoDados();
@@ -688,7 +966,9 @@
 
         let objObra = bancoObras[obraAtiva];
         objObra.estoque[nome] = (objObra.estoque[nome] || 0) + qtd;
-        objObra.historicoEntradas.push({ data: new Date().toLocaleString('pt-BR'), material: nome, quantidade: qtd });
+        objObra.historicoEntradas.push({ data: new Date().toLocaleString('pt-BR'), material: nome, quantidade: qtd, usuario: usuarioLogado });
+        
+        registrarLogAuditoria(obraAtiva, "Entrada de Insumo", `Recebido ${qtd} un/m³ do material "${nome}".`);
 
         salvarBancoDados();
         document.getElementById('novoMatNome').value = '';
@@ -696,28 +976,87 @@
         atualizarTabelaEstoque();
     }
 
-    function adicionarLinhaMaterial() {
+    function adicionarLinhaMaterial(itemNome = '', itemQtd = '') {
         const estoque = bancoObras[obraAtiva].estoque;
         let opcoes = '<option value="">Selecione...</option>';
-        for (let m in estoque) opcoes += `<option value="${m}">${m} (Disp: ${estoque[m]})</option>`;
+        for (let m in estoque) {
+            const sel = m === itemNome ? 'selected' : '';
+            opcoes += `<option value="${m}" ${sel}>${m} (Disp: ${estoque[m]})</option>`;
+        }
 
         const div = document.createElement('div');
         div.className = 'item-dinamico';
-        div.innerHTML = `<select class="mat-nome" style="flex:2">${opcoes}</select><input type="number" class="mat-qtd" placeholder="Qtd" style="flex:1"><button type="button" class="btn-danger" onclick="this.parentElement.remove()">X</button>`;
+        div.innerHTML = `<select class="mat-nome" style="flex:2">${opcoes}</select><input type="number" class="mat-qtd" value="${itemQtd}" placeholder="Qtd" style="flex:1"><button type="button" class="btn-danger" onclick="this.parentElement.remove()">X</button>`;
         document.getElementById('listaMateriaisUso').appendChild(div);
     }
 
-    function adicionarLinhaEquipamento() {
+    function adicionarLinhaEquipamento(itemNome = '', itemStatus = 'Operando') {
         const div = document.createElement('div');
         div.className = 'item-dinamico';
-        div.innerHTML = `<input type="text" class="eq-nome" placeholder="Equipamento" style="flex:2"><select class="eq-status" style="flex:1"><option value="Operando">Operando</option><option value="Parado">Parado</option></select><button type="button" class="btn-danger" onclick="this.parentElement.remove()">X</button>`;
+        div.innerHTML = `<input type="text" class="eq-nome" value="${itemNome}" placeholder="Equipamento" style="flex:2"><select class="eq-status" style="flex:1"><option value="Operando" ${itemStatus==='Operando'?'selected':''}>Operando</option><option value="Parado" ${itemStatus==='Parado'?'selected':''}>Parado</option></select><button type="button" class="btn-danger" onclick="this.parentElement.remove()">X</button>`;
         document.getElementById('listaEquipamentos').appendChild(div);
+    }
+
+    function prepararNovoRDO() {
+        document.getElementById('editRdoIndex').value = "-1";
+        document.getElementById('tituloFormRDO').textContent = `Lançamento do Diário de Obra - ${obraAtiva}`;
+        document.getElementById('btnCancelarEdicaoRDO').style.display = 'none';
+        
+        document.getElementById('regData').valueAsDate = new Date();
+        document.getElementById('regResponsavel').value = '';
+        document.getElementById('regFase').value = '';
+        document.getElementById('regClimaManha').value = 'Ensolarado';
+        document.getElementById('regClimaTarde').value = 'Ensolarado';
+        document.getElementById('regCondicaoTrabalho').value = 'Trabalho Normal';
+        document.getElementById('efetivoMestre').value = '0';
+        document.getElementById('efetivoPedreiro').value = '0';
+        document.getElementById('efetivoServente').value = '0';
+        document.getElementById('efetivoOutros').value = '0';
+        document.getElementById('listaEquipamentos').innerHTML = '';
+        document.getElementById('listaMateriaisUso').innerHTML = '';
+        document.getElementById('regOcorrencias').value = '';
+    }
+
+    function editarRDO(index) {
+        const rdo = bancoObras[obraAtiva].diarioObra[index];
+        if (!rdo) return;
+
+        document.getElementById('editRdoIndex').value = index;
+        document.getElementById('tituloFormRDO').textContent = `✏️ Editando RDO do dia ${rdo.data} - ${obraAtiva}`;
+        document.getElementById('btnCancelarEdicaoRDO').style.display = 'inline-block';
+
+        const partesData = rdo.data.split('/');
+        if (partesData.length === 3) {
+            document.getElementById('regData').value = `${partesData[2]}-${partesData[1]}-${partesData[0]}`;
+        }
+
+        document.getElementById('regResponsavel').value = rdo.responsavel || '';
+        document.getElementById('regFase').value = rdo.fase || '';
+        document.getElementById('regClimaManha').value = rdo.clima?.manha || 'Ensolarado';
+        document.getElementById('regClimaTarde').value = rdo.clima?.tarde || 'Ensolarado';
+        document.getElementById('regCondicaoTrabalho').value = rdo.clima?.condicao || 'Trabalho Normal';
+        document.getElementById('efetivoMestre').value = rdo.efetivo?.mestre || 0;
+        document.getElementById('efetivoPedreiro').value = rdo.efetivo?.pedreiro || 0;
+        document.getElementById('efetivoServente').value = rdo.efetivo?.servente || 0;
+        document.getElementById('efetivoOutros').value = rdo.efetivo?.outros || 0;
+        document.getElementById('regOcorrencias').value = rdo.ocorrencias || '';
+
+        document.getElementById('listaEquipamentos').innerHTML = '';
+        (rdo.equipamentos || []).forEach(eq => adicionarLinhaEquipamento(eq.nome, eq.status));
+
+        document.getElementById('listaMateriaisUso').innerHTML = '';
+        for (let mat in rdo.materiaisUsados) {
+            adicionarLinhaMaterial(mat, rdo.materiaisUsados[mat]);
+        }
+
+        mostrarSecao('sec-registro');
     }
 
     function salvarRDO() {
         const dataRDO = document.getElementById('regData').value;
-        const responsavel = document.getElementById('regResponsavel').value;
-        const fase = document.getElementById('regFase').value;
+        const responsavel = document.getElementById('regResponsavel').value.trim();
+        const fase = document.getElementById('regFase').value.trim();
+        const indexEdicao = parseInt(document.getElementById('editRdoIndex').value);
 
         if (!dataRDO || !responsavel || !fase) {
             alert("Preencha Data, Responsável e Fase.");
@@ -726,26 +1065,43 @@
 
         let objObra = bancoObras[obraAtiva];
         let materiaisUsados = {};
-        let erro = false;
+        let erroEstoque = false;
 
         document.querySelectorAll('#listaMateriaisUso .item-dinamico').forEach(l => {
             const nome = l.querySelector('.mat-nome').value;
             const qtd = parseInt(l.querySelector('.mat-qtd').value);
             if (nome && !isNaN(qtd) && qtd > 0) {
-                if ((objObra.estoque[nome] || 0) < qtd) {
-                    erro = true;
+                // Se for edição, considera saldo retornado
+                let saldoDisponivel = objObra.estoque[nome] || 0;
+                if (indexEdicao >= 0 && objObra.diarioObra[indexEdicao].materiaisUsados[nome]) {
+                    saldoDisponivel += objObra.diarioObra[indexEdicao].materiaisUsados[nome];
+                }
+
+                if (saldoDisponivel < qtd) {
+                    erroEstoque = true;
                 } else {
                     materiaisUsados[nome] = qtd;
                 }
             }
         });
 
-        if (erro) {
-            alert("Erro: Saldo de estoque insuficiente para um ou mais materiais.");
+        if (erroEstoque) {
+            alert("Erro: Saldo de estoque insuficiente para dar baixa nos insumos selecionados.");
             return;
         }
 
-        for (let m in materiaisUsados) objObra.estoque[m] -= materiaisUsados[m];
+        // Devolve insumos antigos caso seja uma edição
+        if (indexEdicao >= 0) {
+            const matAntigos = objObra.diarioObra[indexEdicao].materiaisUsados || {};
+            for (let m in matAntigos) {
+                objObra.estoque[m] = (objObra.estoque[m] || 0) + matAntigos[m];
+            }
+        }
+
+        // Aplica nova baixa de materiais
+        for (let m in materiaisUsados) {
+            objObra.estoque[m] = (objObra.estoque[m] || 0) - materiaisUsados[m];
+        }
 
         let equipamentos = [];
         document.querySelectorAll('#listaEquipamentos .item-dinamico').forEach(l => {
@@ -754,58 +1110,109 @@
             if (nome) equipamentos.push({ nome, status });
         });
 
-        objObra.diarioObra.unshift({
-            obra: obraAtiva,
-            autor: usuarioLogado,
-            data: dataRDO.split('-').reverse().join('/'),
-            responsavel,
-            fase,
-            clima: {
+        const dataFormatada = dataRDO.split('-').reverse().join('/');
+        const dataHoraAgora = new Date().toLocaleString('pt-BR');
+
+        if (indexEdicao >= 0) {
+            // Atualiza RDO existente
+            let rdoExistente = objObra.diarioObra[indexEdicao];
+            rdoExistente.data = dataFormatada;
+            rdoExistente.responsavel = responsavel;
+            rdoExistente.fase = fase;
+            rdoExistente.clima = {
                 manha: document.getElementById('regClimaManha').value,
                 tarde: document.getElementById('regClimaTarde').value,
                 condicao: document.getElementById('regCondicaoTrabalho').value
-            },
-            efetivo: {
+            };
+            rdoExistente.efetivo = {
                 mestre: document.getElementById('efetivoMestre').value || 0,
                 pedreiro: document.getElementById('efetivoPedreiro').value || 0,
                 servente: document.getElementById('efetivoServente').value || 0,
                 outros: document.getElementById('efetivoOutros').value || 0
-            },
-            equipamentos,
-            materiaisUsados,
-            ocorrencias: document.getElementById('regOcorrencias').value || "Sem ocorrências."
-        });
+            };
+            rdoExistente.equipamentos = equipamentos;
+            rdoExistente.materiaisUsados = materiaisUsados;
+            rdoExistente.ocorrencias = document.getElementById('regOcorrencias').value || "Sem ocorrências.";
+            rdoExistente.editadoPor = usuarioLogado;
+            rdoExistente.dataEdicao = dataHoraAgora;
+
+            registrarLogAuditoria(obraAtiva, "Edição de RDO", `RDO da data ${dataFormatada} foi alterado por ${usuarioLogado}.`);
+            alert("RDO alterado e atualizado com sucesso!");
+        } else {
+            // Cria Novo RDO
+            objObra.diarioObra.unshift({
+                obra: obraAtiva,
+                endereco: objObra.endereco || 'Não informado',
+                coordenadas: objObra.coordenadas || 'Não informadas',
+                autor: usuarioLogado,
+                dataCriacao: dataHoraAgora,
+                data: dataFormatada,
+                responsavel,
+                fase,
+                clima: {
+                    manha: document.getElementById('regClimaManha').value,
+                    tarde: document.getElementById('regClimaTarde').value,
+                    condicao: document.getElementById('regCondicaoTrabalho').value
+                },
+                efetivo: {
+                    mestre: document.getElementById('efetivoMestre').value || 0,
+                    pedreiro: document.getElementById('efetivoPedreiro').value || 0,
+                    servente: document.getElementById('efetivoServente').value || 0,
+                    outros: document.getElementById('efetivoOutros').value || 0
+                },
+                equipamentos,
+                materiaisUsados,
+                ocorrencias: document.getElementById('regOcorrencias').value || "Sem ocorrências."
+            });
+
+            registrarLogAuditoria(obraAtiva, "Lançamento de RDO", `Novo RDO registrado para a data ${dataFormatada}.`);
+            alert("RDO registrado com sucesso!");
+        }
 
         salvarBancoDados();
-        document.getElementById('listaMateriaisUso').innerHTML = '';
-        document.getElementById('listaEquipamentos').innerHTML = '';
-        alert("RDO registrado com sucesso!");
+        prepararNovoRDO();
         mostrarSecao('sec-relatorio');
         gerarRelatorio('diario');
     }
 
+    // CENTRAL DE RELATÓRIOS
     function gerarRelatorio(tipo) {
         const container = document.getElementById('conteudoRelatorio');
         let objObra = bancoObras[obraAtiva];
         let html = '';
 
         if (tipo === 'diario') {
-            if (objObra.diarioObra.length === 0) {
-                html = `<p>Nenhum RDO registrado para ${obraAtiva}.</p>`;
+            if (!objObra.diarioObra || objObra.diarioObra.length === 0) {
+                html = `<p>Nenhum RDO registrado para a obra ${obraAtiva}.</p>`;
             } else {
-                objObra.diarioObra.forEach(rdo => {
+                objObra.diarioObra.forEach((rdo, idx) => {
                     let mats = '<ul>';
-                    for (let m in rdo.materiaisUsados) mats += `<li>${m}: ${rdo.materiaisUsados[m]}</li>`;
+                    for (let m in rdo.materiaisUsados) mats += `<li>${m}: ${rdo.materiaisUsados[m]} un/m³</li>`;
                     mats += '</ul>';
+
+                    let infoEdit = rdo.editadoPor 
+                        ? ` | ✏️ <strong>Última Alteração:</strong> por <u>${rdo.editadoPor}</u> em ${rdo.dataEdicao}` 
+                        : '';
 
                     html += `
                         <div class="relatorio-card">
-                            <h3>RDO - ${rdo.data} (Elaborado por: ${rdo.autor || 'Sistema'})</h3>
-                            <p><strong>Obra:</strong> ${rdo.obra} | <strong>Responsável:</strong> ${rdo.responsavel} | <strong>Fase:</strong> ${rdo.fase}</p>
+                            <div class="no-print" style="position: absolute; top: 15px; right: 15px;">
+                                <button class="btn-sub" onclick="editarRDO(${idx})">✏️ Editar RDO</button>
+                            </div>
+
+                            <div class="rdo-auditoria-tag">
+                                👤 <strong>Lançado por:</strong> <u>${rdo.autor || 'Sistema'}</u> em ${rdo.dataCriacao || rdo.data} ${infoEdit}
+                            </div>
+
+                            <h3>RDO - ${rdo.data}</h3>
+                            <p><strong>Obra:</strong> ${rdo.obra}</p>
+                            <p><strong>Endereço:</strong> ${rdo.endereco || objObra.endereco || 'Não informado'} | <strong>GPS:</strong> ${rdo.coordenadas || objObra.coordenadas || 'Não informado'}</p>
+                            <p><strong>Responsável Téc.:</strong> ${rdo.responsavel} | <strong>Fase:</strong> ${rdo.fase}</p>
                             <p><strong>Clima:</strong> Manhã: ${rdo.clima.manha} | Tarde: ${rdo.clima.tarde} (${rdo.clima.condicao})</p>
                             <p><strong>Efetivo:</strong> Mestre: ${rdo.efetivo.mestre} | Pedreiros: ${rdo.efetivo.pedreiro} | Serventes: ${rdo.efetivo.servente} | Outros: ${rdo.efetivo.outros}</p>
                             <p><strong>Materiais Baixados:</strong>${mats}</p>
                             <p><strong>Ocorrências:</strong> ${rdo.ocorrencias}</p>
+                            
                             <div class="ass-box">
                                 <div class="ass-linha">Engenharia Responsável</div>
                                 <div class="ass-linha">Fiscalização</div>
@@ -815,18 +1222,60 @@
                 });
             }
         } else if (tipo === 'estoque') {
-            html = `<h2>Estoque - ${obraAtiva}</h2><table><thead><tr><th>Insumo</th><th>Qtd</th></tr></thead><tbody>`;
-            for (let m in objObra.estoque) html += `<tr><td>${m}</td><td>${objObra.estoque[m]}</td></tr>`;
+            html = `
+                <h2>Relatório de Estoque Atual - ${obraAtiva}</h2>
+                <p><strong>Endereço:</strong> ${objObra.endereco || 'Não informado'} | <strong>GPS:</strong> ${objObra.coordenadas || 'Não informado'}</p>
+                <table>
+                    <thead><tr><th>Insumo</th><th>Saldo Atual</th></tr></thead>
+                    <tbody>`;
+            for (let m in objObra.estoque) html += `<tr><td><strong>${m}</strong></td><td>${objObra.estoque[m]}</td></tr>`;
             html += `</tbody></table>`;
         } else if (tipo === 'entradas') {
-            html = `<h2>Histórico de Entregas - ${obraAtiva}</h2><table><thead><tr><th>Data</th><th>Insumo</th><th>Qtd</th></tr></thead><tbody>`;
-            objObra.historicoEntradas.forEach(e => html += `<tr><td>${e.data}</td><td>${e.material}</td><td>${e.quantidade}</td></tr>`);
+            html = `
+                <h2>Histórico de Recebimento de Insumos - ${obraAtiva}</h2>
+                <table>
+                    <thead><tr><th>Data / Hora</th><th>Insumo</th><th>Qtd Entregue</th><th>Recebido por (Usuário)</th></tr></thead>
+                    <tbody>`;
+            (objObra.historicoEntradas || []).forEach(e => {
+                html += `<tr><td>${e.data}</td><td><strong>${e.material}</strong></td><td>${e.quantidade}</td><td>${e.usuario || 'Sistema'}</td></tr>`;
+            });
+            html += `</tbody></table>`;
+        } else if (tipo === 'auditoria') {
+            html = `
+                <h2>📜 Registro de Histórico & Auditoria da Obra - ${obraAtiva}</h2>
+                <p style="font-size:0.9em; color:#64748b;">Trilha de auditoria mostrando lançamentos, edições e alterações de status efetuadas por cada usuário.</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data / Hora</th>
+                            <th>Usuário Responsável</th>
+                            <th>Ação / Operação</th>
+                            <th>Detalhes da Alteração</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+            const logs = objObra.logAuditoria || [];
+            if (logs.length === 0) {
+                html += `<tr><td colspan="4">Nenhuma movimentação registrada na auditoria.</td></tr>`;
+            } else {
+                logs.forEach(l => {
+                    html += `
+                        <tr>
+                            <td>${l.dataHora}</td>
+                            <td><strong>${l.usuario}</strong></td>
+                            <td><span style="background:#e2e8f0; padding:2px 6px; border-radius:4px; font-weight:600;">${l.acao}</span></td>
+                            <td>${l.detalhes}</td>
+                        </tr>
+                    `;
+                });
+            }
             html += `</tbody></table>`;
         }
+
         container.innerHTML = html;
     }
 
-    // INICIAR
+    // INICIALIZAÇÃO
     inicializarSistema();
 </script>
 </body>

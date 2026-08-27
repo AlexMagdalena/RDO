@@ -797,48 +797,54 @@
         document.getElementById('novoUserSenha').value = '123456';
     }
 
-    async function cadastrarUsuario() {
-        const email = document.getElementById('novoUserEmail').value.trim().toLowerCase();
-        const password = document.getElementById('novoUserSenha').value;
-        const role = document.getElementById('novoUserRole').value;
+   async function cadastrarUsuario() {
+    const email = document.getElementById('novoUserEmail').value.trim().toLowerCase();
+    const password = document.getElementById('novoUserSenha').value;
+    const role = document.getElementById('novoUserRole').value;
 
-        if (!email || !password) return alert("Informe o e-mail e a senha.");
-        if (password.length < 6) return alert("A senha precisa ter pelo menos 6 caracteres.");
+    if (!email || !password) return alert("Informe o e-mail e a senha.");
+    if (password.length < 6) return alert("A senha precisa ter pelo menos 6 caracteres.");
 
-        const sessaoAdmin = (await supabaseClient.auth.getSession()).data.session;
+    // Armazena a sessão atual para não deslogar o administrador
+    const sessionRes = await supabaseClient.auth.getSession();
+    const sessaoAdmin = sessionRes.data ? sessionRes.data.session : null;
 
-        const { data, error } = await supabaseClient.auth.signUp({
-            email: email,
-            password: password,
-            options: { data: { role: role } }
-        });
-
-        if (error) {
-            alert("Erro ao cadastrar usuário: " + error.message);
-            return;
+    // Cadastra o usuário no Supabase Auth enviando o papel (role) nos metadados
+    const { data, error } = await supabaseClient.auth.signUp({
+        email: email,
+        password: password,
+        options: { 
+            data: { role: role } 
         }
+    });
 
-        if (data.user) {
-            await supabaseClient.from('perfis').upsert([{
-                id: data.user.id,
-                email: data.user.email,
-                role: role,
-                senha_temporaria: true
-            }]);
-        }
-
-        if (sessaoAdmin) {
-            await supabaseClient.auth.setSession({
-                access_token: sessaoAdmin.access_token,
-                refresh_token: sessaoAdmin.refresh_token
-            });
-        }
-
-        alert("Usuário registrado com sucesso!\nA senha inicial é '123456' e deverá ser trocada no primeiro login.");
-        fecharModalUsuario();
-        carregarUsuarios();
+    if (error) {
+        alert("Erro ao cadastrar usuário: " + error.message);
+        return;
     }
 
+    // Se o trigger do banco não rodar por algum motivo, realiza o upsert manual na tabela de perfis
+    if (data.user) {
+        await supabaseClient.from('perfis').upsert([{
+            id: data.user.id,
+            email: email,
+            role: role,
+            senha_temporaria: true
+        }], { onConflict: 'id' });
+    }
+
+    // Restaura a sessão do administrador logado
+    if (sessaoAdmin) {
+        await supabaseClient.auth.setSession({
+            access_token: sessaoAdmin.access_token,
+            refresh_token: sessaoAdmin.refresh_token
+        });
+    }
+
+    alert(`Usuário ${email} cadastrado com sucesso como ${role.toUpperCase()}!`);
+    fecharModalUsuario();
+    carregarUsuarios();
+}
     async function carregarUsuarios() {
         const tbody = document.getElementById('tabelaUsuariosCorpo');
         tbody.innerHTML = '<tr><td colspan="4">Carregando usuários...</td></tr>';

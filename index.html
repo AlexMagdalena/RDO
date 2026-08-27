@@ -444,6 +444,9 @@
     const SUPABASE_ANON_KEY = "sb_publishable_hfqD7yvZteVjbpbvIt0RBg_JKa5m2k_";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+    // INSIRA AQUI O SEU E-MAIL DE ADMINISTRADOR PRINCIPAL SUPABASE
+    const EMAIL_SUPERADMIN = 'seu-email-admin@exemplo.com';
+
     let obraAtivaId = null;
     let usuarioAtual = null;
     let perfilUsuarioAtual = null;
@@ -578,7 +581,6 @@
             select.appendChild(opt);
         });
 
-        // Se a obra ativa anterior foi excluída ou não definida, seleciona a primeira
         if (!obraAtivaId || !obrasAtivas.find(o => o.id === obraAtivaId)) {
             obraAtivaId = obrasAtivas[0].id;
         }
@@ -817,17 +819,14 @@
         }
     }
 
-    // EXCLUSÃO CORRIGIDA (LIMPA DEPENDÊNCIAS E ATUALIZA ESTADO LOCAL)
     async function excluirObraAtiva() {
         if (!obraAtivaId) return alert("Nenhuma obra selecionada.");
         if (confirm("ATENÇÃO: Deseja excluir permanentemente esta obra e todos os registros associados?")) {
             const obraDeletar = obraAtivaId;
             
-            // 1. Remove registros vinculados no Supabase
             await supabaseClient.from('rdos').delete().eq('obra_id', obraDeletar);
             await supabaseClient.from('estoque').delete().eq('obra_id', obraDeletar);
             
-            // 2. Remove a obra do banco
             const { error } = await supabaseClient.from('obras').delete().eq('id', obraDeletar);
 
             if (error) {
@@ -835,7 +834,6 @@
                 return;
             }
 
-            // 3. Reset da variável local e recarga da lista
             obraAtivaId = null;
             alert("Obra excluída com sucesso.");
             await carregarObras();
@@ -913,6 +911,7 @@
         carregarUsuarios();
     }
 
+    // CARREGA USUÁRIOS OCULTANDO O SUPERADMIN
     async function carregarUsuarios() {
         if (perfilUsuarioAtual?.role !== 'admin') return;
 
@@ -922,20 +921,22 @@
         const tbody = document.getElementById('tabelaUsuariosCorpo');
         tbody.innerHTML = '';
 
-        (data || []).forEach(u => {
-            const roleBadge = u.role === 'admin' ? '⭐ Admin' : '👷 Operador';
-            tbody.innerHTML += `
-                <tr>
-                    <td>${u.email}</td>
-                    <td>${roleBadge}</td>
-                    <td><small style="color:#64748b;">${u.id}</small></td>
-                    <td style="text-align: center;">
-                        <button class="btn-warning" style="padding: 4px 8px; font-size: 0.8em;" onclick="resetarSenhaUsuario('${u.id}', '${u.email}')">🔑 Resetar Senha</button>
-                        <button class="btn-danger" style="padding: 4px 8px; font-size: 0.8em;" onclick="excluirUsuario('${u.id}', '${u.email}')">🗑️ Excluir</button>
-                    </td>
-                </tr>
-            `;
-        });
+        (data || [])
+            .filter(u => u.email !== EMAIL_SUPERADMIN)
+            .forEach(u => {
+                const roleBadge = u.role === 'admin' ? '⭐ Admin' : '👷 Operador';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${u.email}</td>
+                        <td>${roleBadge}</td>
+                        <td><small style="color:#64748b;">${u.id}</small></td>
+                        <td style="text-align: center;">
+                            <button class="btn-warning" style="padding: 4px 8px; font-size: 0.8em;" onclick="resetarSenhaUsuario('${u.id}', '${u.email}')">🔑 Resetar Senha</button>
+                            <button class="btn-danger" style="padding: 4px 8px; font-size: 0.8em;" onclick="excluirUsuario('${u.id}', '${u.email}')">🗑️ Excluir</button>
+                        </td>
+                    </tr>
+                `;
+            });
     }
 
     async function resetarSenhaUsuario(userId, email) {
@@ -950,7 +951,13 @@
         }
     }
 
+    // PROTEÇÃO CONTRA EXCLUSÃO DO SUPERADMIN
     async function excluirUsuario(userId, email) {
+        if (email === EMAIL_SUPERADMIN) {
+            alert("Ação negada: Este usuário é o administrador principal e não pode ser excluído.");
+            return;
+        }
+
         if (!confirm(`ATENÇÃO: Deseja remover permanentemente o usuário ${email}?`)) return;
 
         const { error } = await supabaseClient.rpc('deletar_usuario_completo', { user_id: userId });

@@ -50,7 +50,7 @@
         .relatorio-header-print img { height: 65px; }
         .badge-entrada { background-color: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
         .badge-saida { background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
-        .card-efetivo { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
+        .card-efetivo, .card-materiais { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
         @media print {
             body { background: white; padding: 0; }
             .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
@@ -105,7 +105,7 @@
 
     <div class="menu-bar no-print">
         <button onclick="mostrarSecao('sec-estoque')">📦 Almoxarifado</button>
-        <button onclick="mostrarSecao('sec-registro');">📝 Novo RDO Diário</button>
+        <button onclick="mostrarSecao('sec-registro'); carregarOpcoesMateriaisRDO();">📝 Novo RDO Diário</button>
         <button onclick="mostrarSecao('sec-relatorio'); carregarAbaRelatorio('rel-almoxarifado');">📊 Relatórios</button>
         <button id="btnMenuUsuarios" class="btn-sub" style="display: none;" onclick="mostrarSecao('sec-usuarios'); carregarUsuarios();">👥 Usuários</button>
         <button class="btn-sub" onclick="mostrarSecao('sec-arquivadas')">📁 Obras Arquivadas</button>
@@ -177,13 +177,36 @@
             <div class="form-group"><label>👷 Outras Funções</label><input type="number" id="efetivoOutros" min="0" value="0"></div>
         </div>
 
-        <h3>3. Ocorrências / Observações</h3>
+        <h3>3. Saída / Consumo de Materiais (Dá baixa no Almoxarifado)</h3>
+        <div class="card-materiais">
+            <div class="grid-3" style="align-items: flex-end;">
+                <div>
+                    <label>Insumo em Estoque</label>
+                    <select id="rdoSelectInsumo"><option value="">Selecione o Insumo</option></select>
+                </div>
+                <div>
+                    <label>Quantidade Utilizada</label>
+                    <input type="number" id="rdoQtdInsumo" placeholder="Ex: 10" min="0.01" step="any">
+                </div>
+                <div>
+                    <button type="button" class="btn-sub" style="width: 100%;" onclick="adicionarMaterialRdoLista()">➕ Adicionar ao RDO</button>
+                </div>
+            </div>
+            <table style="margin-top: 10px;">
+                <thead><tr><th>Material</th><th>Quantidade Utilizada</th><th>Ação</th></tr></thead>
+                <tbody id="tabelaRdoMateriaisCorpo">
+                    <tr><td colspan="3" style="text-align: center; color: #64748b;">Nenhum material adicionado a este RDO.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <h3>4. Ocorrências / Observações</h3>
         <div class="form-group"><textarea id="regOcorrencias" rows="3"></textarea></div>
 
-        <h3>4. Fotos da Vistoria (Armazenadas no Supabase Storage)</h3>
+        <h3>5. Fotos da Vistoria (Armazenadas no Supabase Storage)</h3>
         <div class="form-group"><input type="file" id="regFotosInput" accept="image/*" multiple></div>
 
-        <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; padding: 12px; margin-top: 15px;">💾 Salvar RDO no Banco Cloud</button>
+        <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; padding: 12px; margin-top: 15px;">💾 Salvar RDO e Efetuar Baixa no Estoque</button>
     </div>
 
     <!-- SEÇÃO 3: RELATÓRIOS -->
@@ -301,6 +324,7 @@
     let usuarioAtual = null;
     let perfilUsuarioAtual = null;
     let listaObras = [];
+    let materiaisRDOSelecionados = [];
 
     document.getElementById('regData').valueAsDate = new Date();
 
@@ -487,7 +511,6 @@
 
         if (erroEstoque) return alert("Erro ao atualizar o estoque: " + erroEstoque.message);
 
-        // GRAVA A MOVIMENTAÇÃO COM E-MAIL DO USUÁRIO RESPONSÁVEL
         const { error: erroMov } = await supabaseClient.from('estoque_movimentacoes').insert([{
             obra_id: obraAtivaId,
             insumo: insumo,
@@ -507,14 +530,72 @@
         document.getElementById('novoMatQtd').value = '';
         
         await carregarEstoque();
-        
-        const abaAlmoxVisivel = document.getElementById('rel-almoxarifado')?.classList.contains('active');
-        const abaLogsVisivel = document.getElementById('rel-logs')?.classList.contains('active');
-        
-        if (abaAlmoxVisivel) await gerarRelatorioAlmoxarifado();
-        if (abaLogsVisivel) await gerarRelatorioLogs();
-
         alert("Lançamento de almoxarifado salvo com sucesso!");
+    }
+
+    // --- FUNÇÕES DE SAÍDA DE MATERIAIS VIA RDO ---
+    async function carregarOpcoesMateriaisRDO() {
+        if (!obraAtivaId) return;
+        const { data: estoque } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).gt('quantidade', 0);
+        const select = document.getElementById('rdoSelectInsumo');
+        select.innerHTML = '<option value="">Selecione o Insumo</option>';
+        
+        (estoque || []).forEach(item => {
+            select.innerHTML += `<option value="${item.insumo}" data-saldo="${item.quantidade}">${item.insumo} (Saldo: ${item.quantidade})</option>`;
+        });
+    }
+
+    function adicionarMaterialRdoLista() {
+        const select = document.getElementById('rdoSelectInsumo');
+        const insumo = select.value;
+        const qtd = parseFloat(document.getElementById('rdoQtdInsumo').value);
+
+        if (!insumo) return alert("Selecione um insumo.");
+        if (isNaN(qtd) || qtd <= 0) return alert("Informe uma quantidade válida.");
+
+        const opt = select.options[select.selectedIndex];
+        const saldoDisponivel = parseFloat(opt.getAttribute('data-saldo'));
+
+        if (qtd > saldoDisponivel) {
+            return alert(`Quantidade solicitada (${qtd}) maior do que o saldo em estoque (${saldoDisponivel}).`);
+        }
+
+        const indexExistente = materiaisRDOSelecionados.findIndex(m => m.insumo === insumo);
+        if (indexExistente >= 0) {
+            if (materiaisRDOSelecionados[indexExistente].quantidade + qtd > saldoDisponivel) {
+                return alert("A quantidade total adicionada excede o saldo disponível em estoque.");
+            }
+            materiaisRDOSelecionados[indexExistente].quantidade += qtd;
+        } else {
+            materiaisRDOSelecionados.push({ insumo, quantidade: qtd });
+        }
+
+        document.getElementById('rdoQtdInsumo').value = '';
+        renderizarTabelaMateriaisRDO();
+    }
+
+    function removerMaterialRdoLista(index) {
+        materiaisRDOSelecionados.splice(index, 1);
+        renderizarTabelaMateriaisRDO();
+    }
+
+    function renderizarTabelaMateriaisRDO() {
+        const tbody = document.getElementById('tabelaRdoMateriaisCorpo');
+        tbody.innerHTML = '';
+        if (materiaisRDOSelecionados.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align: center; color: #64748b;">Nenhum material adicionado a este RDO.</td></tr>';
+            return;
+        }
+
+        materiaisRDOSelecionados.forEach((item, index) => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${item.insumo}</strong></td>
+                    <td>${item.quantidade}</td>
+                    <td><button type="button" class="btn-danger" style="padding: 2px 6px; font-size: 0.8em;" onclick="removerMaterialRdoLista(${index})">❌ Remover</button></td>
+                </tr>
+            `;
+        });
     }
 
     async function salvarRDO() {
@@ -544,6 +625,28 @@
             outros: parseInt(document.getElementById('efetivoOutros').value) || 0
         };
 
+        // EFETUA A BAIXA AUTOMÁTICA DOS MATERIAIS NO ALMOXARIFADO
+        for (let mat of materiaisRDOSelecionados) {
+            const { data: estoqueExistente } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).eq('insumo', mat.insumo).single();
+            if (estoqueExistente) {
+                const saldoAtual = parseFloat(estoqueExistente.quantidade);
+                const novoSaldo = Math.max(0, saldoAtual - mat.quantidade);
+
+                await supabaseClient.from('estoque').update({ quantidade: novoSaldo }).eq('id', estoqueExistente.id);
+
+                await supabaseClient.from('estoque_movimentacoes').insert([{
+                    obra_id: obraAtivaId,
+                    insumo: mat.insumo,
+                    tipo: 'SAIDA',
+                    quantidade: mat.quantidade,
+                    usuario_email: usuarioAtual.email,
+                    criado_em: new Date().toISOString()
+                }]);
+
+                await registrarLog('ALMOXARIFADO_SAIDA_RDO', `Saída automática por RDO: ${mat.insumo} | Qtd: ${mat.quantidade}`);
+            }
+        }
+
         const rdoPayload = {
             obra_id: obraAtivaId,
             data: document.getElementById('regData').value,
@@ -555,7 +658,8 @@
             ocorrencias: document.getElementById('regOcorrencias').value,
             usuario_email: usuarioAtual.email,
             fotos: fotoUrls,
-            efetivo: efetivoObj
+            efetivo: efetivoObj,
+            materiais_baixados: materiaisRDOSelecionados
         };
 
         const { error } = await supabaseClient.from('rdos').insert([rdoPayload]);
@@ -563,9 +667,13 @@
             alert("Erro ao salvar RDO: " + error.message);
         } else {
             await registrarLog('RDO_CRIADO', `Data RDO: ${rdoPayload.data}`);
-            alert("RDO registrado com sucesso!");
+            alert("RDO registrado e baixa no almoxarifado efetuada com sucesso!");
             document.getElementById('regOcorrencias').value = '';
             document.getElementById('regFotosInput').value = '';
+            materiaisRDOSelecionados = [];
+            renderizarTabelaMateriaisRDO();
+            await carregarOpcoesMateriaisRDO();
+            await carregarEstoque();
         }
     }
 
@@ -712,7 +820,6 @@
         `;
     }
 
-    // 1. RELATÓRIO DO ALMOXARIFADO (EXIBINDO SAÍDAS/ENTRADAS COM USUÁRIO E QUANTIDADE)
     async function gerarRelatorioAlmoxarifado() {
         if (!obraAtivaId) return;
         const target = document.getElementById('print-almoxarifado');
@@ -752,10 +859,8 @@
         `;
     }
 
-    // 2. RELATÓRIO DE LOGS
     async function gerarRelatorioLogs() {
         const target = document.getElementById('print-logs');
-        
         let query = supabaseClient.from('logs_auditoria').select('*').order('criado_em', { ascending: false });
         if (obraAtivaId) {
             query = query.or(`obra_id.eq.${obraAtivaId},obra_id.is.null`);
@@ -785,7 +890,6 @@
         `;
     }
 
-    // 3. RELATÓRIO DIÁRIO DE OBRA (RDO)
     async function gerarRelatorioObraRDO() {
         if (!obraAtivaId) return;
         const target = document.getElementById('print-obra');
@@ -800,6 +904,7 @@
 
         listaRdos.forEach(r => {
             const ef = r.efetivo || {};
+            const matBaixados = r.materiais_baixados || [];
             const totalEfetivo = Object.values(ef).reduce((a, b) => Number(a) + Number(b), 0);
 
             html += `
@@ -813,6 +918,15 @@
                     
                     <p><strong>Efetivo Diário Total:</strong> ${totalEfetivo} trabalhadores</p>
                     <small>Pedreiros: ${ef.pedreiro||0} | Serventes: ${ef.servente||0} | Operadores: ${ef.operador||0} | Carpinteiros: ${ef.carpinteiro||0} | Serralheiros: ${ef.serralheiro||0} | Bombeiros: ${ef.bombeiro||0} | Terceirizados: ${ef.terceirizado||0} | Outros: ${ef.outros||0}</small>
+
+                    ${(matBaixados.length > 0) ? `
+                        <div style="margin-top:10px;">
+                            <strong>Materiais Utilizados / Baixados no Almoxarifado:</strong>
+                            <ul style="margin: 5px 0; padding-left: 20px; font-size: 0.9em;">
+                                ${matBaixados.map(m => `<li><strong>${m.insumo}</strong>: ${m.quantidade}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
 
                     <div style="margin-top:10px;">
                         <strong>Ocorrências:</strong>
@@ -867,7 +981,6 @@
         janelaPrint.document.close();
     }
 
-    // MANUTENÇÃO DE USUÁRIOS E RESET DE SENHA
     async function carregarUsuarios() {
         const { data: perfis, error } = await supabaseClient.from('perfis').select('*');
         if (error) return alert("Erro ao carregar usuários: " + error.message);
@@ -927,14 +1040,12 @@
         carregarUsuarios();
     }
 
-    // REINCLUÍDA A FUNÇÃO DE RESET DE SENHA PARA A SENHA INICIAL (123456)
     async function resetarSenhaUsuario(id, email) {
         if (!confirm(`Deseja redefinir a senha do usuário "${email}" para a senha padrão "123456"?`)) return;
 
         const { error } = await supabaseClient.auth.admin.updateUserById(id, { password: '123456' });
         
         if (error) {
-            // Caso a chave anon do Supabase não tenha permissão de admin.updateUserById no client-side
             alert("Nota: A redefinição direta exige permissão administrativa no Supabase. Um e-mail de redefinição de senha também pode ser enviado.");
             const { error: resetErr } = await supabaseClient.auth.resetPasswordForEmail(email);
             if (resetErr) return alert("Erro ao enviar e-mail de redefinição: " + resetErr.message);

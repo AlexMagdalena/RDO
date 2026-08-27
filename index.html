@@ -443,16 +443,13 @@
     const SUPABASE_URL = 'https://babsgbpzjjkqiblvvigh.supabase.co';
     const SUPABASE_ANON_KEY = "sb_publishable_hfqD7yvZteVjbpbvIt0RBg_JKa5m2k_";
 
-    // CONFIGURAÇÃO ALTERADA:
-    // Configura o cliente para NÃO persistir a sessão após fechar a aba/janela.
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
-            persistSession: false, // Força a pedir senha após fechar o navegador
+            persistSession: false,
             autoRefreshToken: false
         }
     });
 
-    // INSIRA AQUI O SEU E-MAIL DE ADMINISTRADOR PRINCIPAL SUPABASE
     const EMAIL_SUPERADMIN = 'admin@admin.com';
 
     let obraAtivaId = null;
@@ -804,18 +801,163 @@
         const endereco = document.getElementById('modalObraEndereco').value.trim();
         const coordenadas = document.getElementById('modalObraCoordenadas').value.trim();
 
-        if (!nome) return alert("Informe o nome da obra.");
-
-        const payload = { nome, endereco, coordenadas, status: 'ativa' };
+        if (!nome) return alert("Insira o nome da obra.");
 
         if (id) {
-            await supabaseClient.from('obras').update(payload).eq('id', id);
+            const { error } = await supabaseClient.from('obras').update({ nome, endereco, coordenadas }).eq('id', id);
+            if (error) alert("Erro ao atualizar: " + error.message);
         } else {
-            await supabaseClient.from('obras').insert([payload]);
+            const { error } = await supabaseClient.from('obras').insert([{ nome, endereco, coordenadas, status: 'ativa' }]);
+            if (error) alert("Erro ao criar: " + error.message);
         }
 
         fecharModalObra();
         await carregarObras();
+    }
+
+    async function arquivarObraAtual() {
+        if (!obraAtivaId) return;
+        if (confirm("Deseja realmente arquivar a obra atual?")) {
+            await supabaseClient.from('obras').update({ status: 'arquivada' }).eq('id', obraAtivaId);
+            obraAtivaId = null;
+            await carregarObras();
+        }
+    }
+
+    async function desalquivarObra(id) {
+        await supabaseClient.from('obras').update({ status: 'ativa' }).eq('id', id);
+        obraAtivaId = id;
+        await carregarObras();
+    }
+
+    async function excluirObraAtiva() {
+        if (!obraAtivaId) return;
+        if (confirm("ATENÇÃO: Deseja realmente excluir a obra e todos os seus dados? Esta ação não pode ser desfeita.")) {
+            await supabaseClient.from('obras').delete().eq('id', obraAtivaId);
+            obraAtivaId = null;
+            await carregarObras();
+        }
+    }
+
+    function atualizarTabelaArquivadas() {
+        const tbody = document.getElementById('tabelaObrasArquivadas');
+        tbody.innerHTML = '';
+        const arquivadas = listaObras.filter(o => o.status === 'arquivada');
+
+        if (arquivadas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2">Nenhuma obra arquivada.</td></tr>';
+            return;
+        }
+
+        arquivadas.forEach(obra => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${obra.nome}</td>
+                    <td>
+                        <button class="btn-success" onclick="desalquivarObra('${obra.id}')">Desarquivar 📂</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    /* GESTÃO DE USUÁRIOS CORRIGIDA */
+    function abrirModalUsuario() {
+        document.getElementById('modal-usuario-overlay').style.display = 'flex';
+    }
+
+    function fecharModalUsuario() {
+        document.getElementById('modal-usuario-overlay').style.display = 'none';
+        document.getElementById('novoUserEmail').value = '';
+    }
+
+    async function cadastrarUsuario() {
+        const email = document.getElementById('novoUserEmail').value.trim();
+        const password = document.getElementById('novoUserSenha').value;
+        const role = document.getElementById('novoUserRole').value;
+
+        if (!email || !password) return alert("Preencha o e-mail e a senha.");
+
+        try {
+            // Chamada HTTP direta na API de Auth do Supabase sem deslogar o Admin
+            const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'apikey': SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify({ email, password })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.msg || data.error_description || data.message || "Erro ao registrar usuário.");
+            }
+
+            const newUserId = data.id || data.user?.id;
+
+            if (newUserId) {
+                // Insere perfil com senha temporária habilitada
+                const { error: profileError } = await supabaseClient.from('perfis').insert([{
+                    id: newUserId,
+                    email: email,
+                    role: role,
+                    senha_temporaria: true
+                }]);
+
+                if (profileError) {
+                    alert("Usuário criado no Auth, mas houve erro ao criar o perfil: " + profileError.message);
+                } else {
+                    alert("Usuário criado com sucesso!");
+                    fecharModalUsuario();
+                    carregarUsuarios();
+                }
+            } else {
+                alert("Usuário cadastrado com sucesso! Verifique a confirmação de e-mail se estiver ativada.");
+                fecharModalUsuario();
+            }
+        } catch (err) {
+            alert("Erro ao cadastrar usuário: " + err.message);
+        }
+    }
+
+    async function carregarUsuarios() {
+        const { data, error } = await supabaseClient.from('perfis').select('*');
+        const tbody = document.getElementById('tabelaUsuariosCorpo');
+        tbody.innerHTML = '';
+
+        if (error) return alert("Erro ao carregar usuários: " + error.message);
+
+        (data || []).forEach(u => {
+            const ehSuperAdmin = u.email === EMAIL_SUPERADMIN;
+            const botaoDeletar = ehSuperAdmin ? '<span style="color:#64748b; font-size:0.8em;">(SuperAdmin)</span>' : `<button class="btn-danger" onclick="deletarUsuario('${u.id}', '${u.email}')">Excluir</button>`;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${u.email}</td>
+                    <td><strong>${u.role}</strong></td>
+                    <td><small>${u.id}</small></td>
+                    <td style="text-align: center;">${botaoDeletar}</td>
+                </tr>
+            `;
+        });
+    }
+
+    async function deletarUsuario(id, email) {
+        if (email === EMAIL_SUPERADMIN) {
+            return alert("O Super Admin não pode ser removido.");
+        }
+
+        if (confirm(`Deseja remover o perfil do usuário ${email}?`)) {
+            const { error } = await supabaseClient.from('perfis').delete().eq('id', id);
+            if (error) {
+                alert("Erro ao remover usuário: " + error.message);
+            } else {
+                alert("Perfil removido com sucesso!");
+                carregarUsuarios();
+            }
+        }
     }
 </script>
 </body>

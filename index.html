@@ -439,10 +439,7 @@
 </div>
 
 <script>
-    // LOGOMARCA ASM VIA CAMINHO RELATIVO LOCAL OU REPOSITÓRIO
     const LOGO_URL = './logo_asm.png';
-
-    // CONFIGURAÇÃO DO SUPABASE
     const SUPABASE_URL = 'https://babsgbpzjjkqiblvvigh.supabase.co';
     const SUPABASE_ANON_KEY = "sb_publishable_hfqD7yvZteVjbpbvIt0RBg_JKa5m2k_";
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -453,10 +450,30 @@
     let listaObras = [];
 
     document.getElementById('regData').valueAsDate = new Date();
-
-    // Carrega imagens da logo
     document.getElementById('imgLogoLogin').src = LOGO_URL;
     document.getElementById('imgLogoHeader').src = LOGO_URL;
+
+    // VERIFICAÇÃO AUTOMÁTICA DE SESSÃO AO CARREGAR / ATUALIZAR (F5)
+    document.addEventListener('DOMContentLoaded', async () => {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            usuarioAtual = session.user;
+            document.getElementById('login-overlay').style.display = 'none';
+            await inicializarSistema();
+        } else {
+            document.getElementById('login-overlay').style.display = 'flex';
+        }
+    });
+
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+            usuarioAtual = session.user;
+            document.getElementById('login-overlay').style.display = 'none';
+            await inicializarSistema();
+        } else if (event === 'SIGNED_OUT') {
+            document.getElementById('login-overlay').style.display = 'flex';
+        }
+    });
 
     async function fazerLogin() {
         const email = document.getElementById('loginEmail').value.trim();
@@ -472,7 +489,6 @@
 
         usuarioAtual = data.user;
 
-        // Verifica se a senha do usuário precisa ser alterada no primeiro acesso/reset
         const { data: perfil } = await supabaseClient.from('perfis').select('senha_temporaria').eq('id', usuarioAtual.id).single();
 
         if (perfil && perfil.senha_temporaria) {
@@ -492,13 +508,12 @@
                 return;
             }
 
-            // Remove a flag de exigência de nova senha
             await supabaseClient.from('perfis').update({ senha_temporaria: false }).eq('id', usuarioAtual.id);
             alert("Senha alterada com sucesso! Acesso liberado.");
         }
 
         document.getElementById('login-overlay').style.display = 'none';
-        inicializarSistema();
+        await inicializarSistema();
     }
 
     async function sairSistema() {
@@ -507,21 +522,15 @@
     }
 
     async function inicializarSistema() {
-        const { data: { user } } = await supabaseClient.auth.getUser();
-        if (!user) {
-            document.getElementById('login-overlay').style.display = 'flex';
-            return;
-        }
-        usuarioAtual = user;
+        if (!usuarioAtual) return;
 
-        const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', user.id).single();
+        const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', usuarioAtual.id).single();
         perfilUsuarioAtual = perfil;
 
         const isAdmin = perfil && perfil.role === 'admin';
         const roleTxt = isAdmin ? '⭐ (Admin)' : '👷 (Operador)';
-        document.getElementById('infoUsuarioLogado').innerHTML = `👤 ${user.email} <span style="font-size:0.85em; opacity:0.8;">${roleTxt}</span>`;
+        document.getElementById('infoUsuarioLogado').innerHTML = `👤 ${usuarioAtual.email} <span style="font-size:0.85em; opacity:0.8;">${roleTxt}</span>`;
         
-        // Exibe o botão do menu apenas para Administradores
         const btnUsuarios = document.getElementById('btnMenuUsuarios');
         if (btnUsuarios) {
             btnUsuarios.style.display = isAdmin ? 'inline-block' : 'none';
@@ -531,7 +540,6 @@
     }
 
     function mostrarSecao(idSecao) {
-        // Bloqueia acesso direto à área de usuários se não for Admin
         if (idSecao === 'sec-usuarios' && perfilUsuarioAtual?.role !== 'admin') {
             alert("Acesso restrito apenas para Administradores.");
             return;
@@ -554,6 +562,15 @@
         select.innerHTML = '';
         
         const obrasAtivas = listaObras.filter(o => o.status === 'ativa');
+        
+        if (obrasAtivas.length === 0) {
+            obraAtivaId = null;
+            limparDadosObraExibicao();
+            select.innerHTML = '<option value="">Nenhuma obra cadastrada</option>';
+            atualizarTabelaArquivadas();
+            return;
+        }
+
         obrasAtivas.forEach(obra => {
             const opt = document.createElement('option');
             opt.value = obra.id;
@@ -561,24 +578,36 @@
             select.appendChild(opt);
         });
 
-        if (obrasAtivas.length > 0) {
-            if (!obraAtivaId || !obrasAtivas.find(o => o.id === obraAtivaId)) {
-                obraAtivaId = obrasAtivas[0].id;
-            }
-            select.value = obraAtivaId;
-            carregarDadosObraAtiva();
+        // Se a obra ativa anterior foi excluída ou não definida, seleciona a primeira
+        if (!obraAtivaId || !obrasAtivas.find(o => o.id === obraAtivaId)) {
+            obraAtivaId = obrasAtivas[0].id;
         }
+        
+        select.value = obraAtivaId;
+        carregarDadosObraAtiva();
         atualizarTabelaArquivadas();
     }
 
+    function limparDadosObraExibicao() {
+        document.querySelectorAll('.nomeObraTxt').forEach(el => el.textContent = 'Nenhuma Obra');
+        document.getElementById('lblObraEndereco').textContent = 'N/A';
+        document.getElementById('lblObraCoordenadas').textContent = 'N/A';
+        document.getElementById('btnVerMapa').style.display = 'none';
+        document.getElementById('tabelaEstoqueCorpo').innerHTML = '';
+    }
+
     function trocarObraAtiva(id) {
+        if (!id) return;
         obraAtivaId = id;
         carregarDadosObraAtiva();
     }
 
     async function carregarDadosObraAtiva() {
         const obra = listaObras.find(o => o.id === obraAtivaId);
-        if (!obra) return;
+        if (!obra) {
+            limparDadosObraExibicao();
+            return;
+        }
 
         document.querySelectorAll('.nomeObraTxt').forEach(el => el.textContent = obra.nome);
         document.getElementById('lblObraEndereco').textContent = obra.endereco || 'Não informado';
@@ -625,6 +654,7 @@
     }
 
     async function carregarEstoque() {
+        if (!obraAtivaId) return;
         const { data } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId);
         const tbody = document.getElementById('tabelaEstoqueCorpo');
         tbody.innerHTML = '';
@@ -634,6 +664,7 @@
     }
 
     async function reporEstoque() {
+        if (!obraAtivaId) return alert("Nenhuma obra ativa selecionada.");
         const insumo = document.getElementById('novoMatNome').value.trim().toUpperCase();
         const quantidade = parseFloat(document.getElementById('novoMatQtd').value);
 
@@ -658,6 +689,7 @@
     }
 
     async function salvarRDO() {
+        if (!obraAtivaId) return alert("Nenhuma obra selecionada para registrar RDO.");
         const files = document.getElementById('regFotosInput').files;
         const fotoUrls = [];
 
@@ -697,6 +729,7 @@
     }
 
     async function gerarRelatorio() {
+        if (!obraAtivaId) return;
         const { data } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraAtivaId).order('data', { ascending: false });
         const target = document.getElementById('conteudoRelatorio');
         const obra = listaObras.find(o => o.id === obraAtivaId);
@@ -737,10 +770,12 @@
         document.getElementById('modal-obra-overlay').style.display = 'flex';
         if (modo === 'editar') {
             const obra = listaObras.find(o => o.id === obraAtivaId);
-            document.getElementById('obraIdEdicao').value = obra.id;
-            document.getElementById('modalObraNome').value = obra.nome;
-            document.getElementById('modalObraEndereco').value = obra.endereco || '';
-            document.getElementById('modalObraCoordenadas').value = obra.coordenadas || '';
+            if (obra) {
+                document.getElementById('obraIdEdicao').value = obra.id;
+                document.getElementById('modalObraNome').value = obra.nome;
+                document.getElementById('modalObraEndereco').value = obra.endereco || '';
+                document.getElementById('modalObraCoordenadas').value = obra.coordenadas || '';
+            }
         } else {
             document.getElementById('obraIdEdicao').value = '';
             document.getElementById('modalObraNome').value = '';
@@ -770,20 +805,40 @@
         }
 
         fecharModalObra();
-        carregarObras();
+        await carregarObras();
     }
 
     async function arquivarObraAtual() {
+        if (!obraAtivaId) return alert("Nenhuma obra ativa selecionada.");
         if (confirm("Deseja arquivar esta obra?")) {
             await supabaseClient.from('obras').update({ status: 'arquivada' }).eq('id', obraAtivaId);
-            carregarObras();
+            obraAtivaId = null;
+            await carregarObras();
         }
     }
 
+    // EXCLUSÃO CORRIGIDA (LIMPA DEPENDÊNCIAS E ATUALIZA ESTADO LOCAL)
     async function excluirObraAtiva() {
-        if (confirm("ATENÇÃO: Deseja excluir permanentemente a obra e seus dados?")) {
-            await supabaseClient.from('obras').delete().eq('id', obraAtivaId);
-            carregarObras();
+        if (!obraAtivaId) return alert("Nenhuma obra selecionada.");
+        if (confirm("ATENÇÃO: Deseja excluir permanentemente esta obra e todos os registros associados?")) {
+            const obraDeletar = obraAtivaId;
+            
+            // 1. Remove registros vinculados no Supabase
+            await supabaseClient.from('rdos').delete().eq('obra_id', obraDeletar);
+            await supabaseClient.from('estoque').delete().eq('obra_id', obraDeletar);
+            
+            // 2. Remove a obra do banco
+            const { error } = await supabaseClient.from('obras').delete().eq('id', obraDeletar);
+
+            if (error) {
+                alert("Erro ao excluir obra: " + error.message);
+                return;
+            }
+
+            // 3. Reset da variável local e recarga da lista
+            obraAtivaId = null;
+            alert("Obra excluída com sucesso.");
+            await carregarObras();
         }
     }
 

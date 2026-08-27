@@ -21,13 +21,16 @@
         h1 { margin: 0; font-size: 1.5em; }
         h2 { border-bottom: 2px solid var(--border); padding-bottom: 6px; margin-top: 25px; }
         .menu-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .sub-menu-bar { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 2px solid var(--border); padding-bottom: 10px; }
         button { padding: 9px 15px; background-color: var(--secondary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em; }
         button:hover { opacity: 0.9; }
+        .btn-tab { background-color: #e2e8f0; color: #334155; }
+        .btn-tab.active-tab { background-color: var(--primary); color: white; }
         .btn-success { background-color: var(--success); }
         .btn-warning { background-color: var(--warning); }
         .btn-danger { background-color: var(--danger); }
         .btn-sub { background-color: #64748b; }
-        .section { display: none; }
+        .section, .sub-section { display: none; }
         .active { display: block; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
@@ -52,8 +55,8 @@
             body { background: white; padding: 0; }
             .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
             body * { visibility: hidden; }
-            #conteudoRelatorio, #conteudoRelatorio * { visibility: visible; }
-            #conteudoRelatorio { position: absolute; left: 0; top: 0; width: 100%; }
+            .print-area, .print-area * { visibility: visible; }
+            .print-area { position: absolute; left: 0; top: 0; width: 100%; }
             .no-print { display: none !important; }
         }
     </style>
@@ -103,7 +106,7 @@
     <div class="menu-bar no-print">
         <button onclick="mostrarSecao('sec-estoque')">📦 Almoxarifado</button>
         <button onclick="mostrarSecao('sec-registro');">📝 Novo RDO Diário</button>
-        <button onclick="mostrarSecao('sec-relatorio'); gerarRelatorio();">📊 Relatórios</button>
+        <button onclick="mostrarSecao('sec-relatorio'); carregarAbaRelatorio('rel-almoxarifado');">📊 Relatórios</button>
         <button id="btnMenuUsuarios" class="btn-sub" style="display: none;" onclick="mostrarSecao('sec-usuarios'); carregarUsuarios();">👥 Usuários</button>
         <button class="btn-sub" onclick="mostrarSecao('sec-arquivadas')">📁 Obras Arquivadas</button>
     </div>
@@ -183,13 +186,40 @@
         <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; padding: 12px; margin-top: 15px;">💾 Salvar RDO no Banco Cloud</button>
     </div>
 
-    <!-- SEÇÃO 3: RELATÓRIOS -->
+    <!-- SEÇÃO 3: RELATÓRIOS (COM SUB-ABAS E IMPRESSÃO SEPARADA) -->
     <div id="sec-relatorio" class="section">
-        <div style="display: flex; justify-content: space-between; align-items: center;" class="no-print">
-            <h2>Relatórios - <span class="nomeObraTxt"></span></h2>
-            <button class="btn-warning" onclick="window.print()">🖨️ Imprimir Relatório</button>
+        <div class="sub-menu-bar no-print">
+            <button id="tab-rel-almoxarifado" class="btn-tab" onclick="carregarAbaRelatorio('rel-almoxarifado')">📦 Relatório do Almoxarifado</button>
+            <button id="tab-rel-logs" class="btn-tab" onclick="carregarAbaRelatorio('rel-logs')">📋 Logs de Alterações</button>
+            <button id="tab-rel-obra" class="btn-tab" onclick="carregarAbaRelatorio('rel-obra')">📝 Relatório RDO da Obra</button>
         </div>
-        <div id="conteudoRelatorio"></div>
+
+        <!-- ABA 3.1: ALMOXARIFADO -->
+        <div id="rel-almoxarifado" class="sub-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;" class="no-print">
+                <h2>Relatório do Almoxarifado - <span class="nomeObraTxt"></span></h2>
+                <button class="btn-warning" onclick="imprimirAbaSeparada('print-almoxarifado')">🖨️ Imprimir Almoxarifado</button>
+            </div>
+            <div id="print-almoxarifado"></div>
+        </div>
+
+        <!-- ABA 3.2: LOGS -->
+        <div id="rel-logs" class="sub-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;" class="no-print">
+                <h2>Logs de Alterações e Auditoria - <span class="nomeObraTxt"></span></h2>
+                <button class="btn-warning" onclick="imprimirAbaSeparada('print-logs')">🖨️ Imprimir Logs</button>
+            </div>
+            <div id="print-logs"></div>
+        </div>
+
+        <!-- ABA 3.3: RDO / OBRA -->
+        <div id="rel-obra" class="sub-section">
+            <div style="display: flex; justify-content: space-between; align-items: center;" class="no-print">
+                <h2>Relatório Diário de Obra (RDO) - <span class="nomeObraTxt"></span></h2>
+                <button class="btn-warning" onclick="imprimirAbaSeparada('print-obra')">🖨️ Imprimir Relatório RDO</button>
+            </div>
+            <div id="print-obra"></div>
+        </div>
     </div>
 
     <!-- SEÇÃO USUÁRIOS -->
@@ -311,7 +341,6 @@
         await carregarObras();
     }
 
-    // REGISTRO DE AUDITORIA DE SISTEMA (Log de Alterações)
     async function registrarLog(acao, detalhe) {
         try {
             await supabaseClient.from('logs_auditoria').insert([{
@@ -527,107 +556,130 @@
         }
     }
 
-    async function gerarRelatorio() {
-        if (!obraAtivaId) return;
+    // CONTROLE DE SUB-ABAS DOS RELATÓRIOS
+    async function carregarAbaRelatorio(subAbaId) {
+        document.querySelectorAll('.sub-section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.btn-tab').forEach(el => el.classList.remove('active-tab'));
 
-        const target = document.getElementById('conteudoRelatorio');
+        document.getElementById(subAbaId).classList.add('active');
+        document.getElementById(`tab-${subAbaId}`).classList.add('active-tab');
+
+        if (subAbaId === 'rel-almoxarifado') await gerarRelatorioAlmoxarifado();
+        if (subAbaId === 'rel-logs') await gerarRelatorioLogs();
+        if (subAbaId === 'rel-obra') await gerarRelatorioObraRDO();
+    }
+
+    function obterCabecalhoImpressao(tituloRelatorio) {
         const obra = listaObras.find(o => o.id === obraAtivaId);
-
-        const { data: rdos } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraAtivaId).order('data', { ascending: false });
-        const { data: estoqueAtual } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).order('insumo');
-        const { data: movsEstoque } = await supabaseClient.from('estoque_movimentacoes').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
-        const { data: logsAuditoria } = await supabaseClient.from('logs_auditoria').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
-
-        const entradas = (movsEstoque || []).filter(m => m.tipo === 'ENTRADA');
-        const saidas = (movsEstoque || []).filter(m => m.tipo === 'SAIDA');
-
-        let html = `
+        return `
             <div class="relatorio-header-print">
                 <div><img src="${LOGO_URL}" alt="ASM Engenharia Civil"></div>
                 <div style="text-align: right;">
-                    <h2 style="margin: 0; font-size: 1.3em;">RELATÓRIO GERENCIAL INTEGRADO DE OBRA</h2>
+                    <h2 style="margin: 0; font-size: 1.2em;">${tituloRelatorio}</h2>
                     <p style="margin: 2px 0 0 0; font-weight: bold;">Obra: ${obra ? obra.nome : ''}</p>
                     <small style="color: #475569;">${obra ? (obra.endereco || '') : ''} ${obra && obra.coordenadas ? '| GPS: ' + obra.coordenadas : ''}</small>
                 </div>
             </div>
+        `;
+    }
 
-            <!-- SEÇÃO DE ALMOXARIFADO -->
-            <div style="border: 2px solid var(--secondary); padding: 15px; border-radius: 8px; margin-bottom: 25px; background: #fff;">
-                <h2 style="margin-top:0; color: var(--primary);">📦 Relatório de Saldo e Movimentações de Materiais</h2>
-                
-                <h3>1. Saldo Consolidado em Estoque</h3>
-                <table>
-                    <thead><tr><th>Insumo / Material</th><th>Saldo Atual</th></tr></thead>
-                    <tbody>
-                        ${(estoqueAtual && estoqueAtual.length > 0) 
-                            ? estoqueAtual.map(e => `<tr><td><strong>${e.insumo}</strong></td><td>${e.quantidade}</td></tr>`).join('') 
-                            : '<tr><td colspan="2">Nenhum item em estoque.</td></tr>'}
-                    </tbody>
-                </table>
+    // 1. RELATÓRIO DO ALMOXARIFADO
+    async function gerarRelatorioAlmoxarifado() {
+        if (!obraAtivaId) return;
+        const target = document.getElementById('print-almoxarifado');
+        const { data: estoqueAtual } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).order('insumo');
+        const { data: movsEstoque } = await supabaseClient.from('estoque_movimentacoes').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
 
-                <div class="grid-2">
-                    <div>
-                        <h3 style="color: #166534;">📥 Entradas / Recebimentos</h3>
-                        <table>
-                            <thead><tr><th>Data/Hora</th><th>Insumo</th><th>Qtd</th><th>Usuário</th></tr></thead>
-                            <tbody>
-                                ${(entradas.length > 0) ? entradas.map(m => `
-                                    <tr>
-                                        <td><small>${new Date(m.criado_em).toLocaleString('pt-BR')}</small></td>
-                                        <td><strong>${m.insumo}</strong></td>
-                                        <td><span class="badge-entrada">+${m.quantidade}</span></td>
-                                        <td><small>${m.usuario_email}</small></td>
-                                    </tr>`).join('') : '<tr><td colspan="4">Nenhuma entrada.</td></tr>'}
-                            </tbody>
-                        </table>
-                    </div>
+        const entradas = (movsEstoque || []).filter(m => m.tipo === 'ENTRADA');
+        const saidas = (movsEstoque || []).filter(m => m.tipo === 'SAIDA');
 
-                    <div>
-                        <h3 style="color: #991b1b;">📤 Saídas / Baixas</h3>
-                        <table>
-                            <thead><tr><th>Data/Hora</th><th>Insumo</th><th>Qtd</th><th>Usuário</th></tr></thead>
-                            <tbody>
-                                ${(saidas.length > 0) ? saidas.map(m => `
-                                    <tr>
-                                        <td><small>${new Date(m.criado_em).toLocaleString('pt-BR')}</small></td>
-                                        <td><strong>${m.insumo}</strong></td>
-                                        <td><span class="badge-saida">-${m.quantidade}</span></td>
-                                        <td><small>${m.usuario_email}</small></td>
-                                    </tr>`).join('') : '<tr><td colspan="4">Nenhuma saída.</td></tr>'}
-                            </tbody>
-                        </table>
-                    </div>
+        target.innerHTML = `
+            ${obterCabecalhoImpressao('RELATÓRIO DO ALMOXARIFADO & MOVIMENTAÇÃO DE MATERIAIS')}
+            
+            <h3>1. Saldo Consolidado em Estoque</h3>
+            <table>
+                <thead><tr><th>Insumo / Material</th><th>Saldo Atual</th></tr></thead>
+                <tbody>
+                    ${(estoqueAtual && estoqueAtual.length > 0) 
+                        ? estoqueAtual.map(e => `<tr><td><strong>${e.insumo}</strong></td><td>${e.quantidade}</td></tr>`).join('') 
+                        : '<tr><td colspan="2">Nenhum item em estoque.</td></tr>'}
+                </tbody>
+            </table>
+
+            <div class="grid-2">
+                <div>
+                    <h3 style="color: #166534;">📥 Entradas / Recebimentos</h3>
+                    <table>
+                        <thead><tr><th>Data/Hora</th><th>Insumo</th><th>Qtd</th><th>Usuário</th></tr></thead>
+                        <tbody>
+                            ${(entradas.length > 0) ? entradas.map(m => `
+                                <tr>
+                                    <td><small>${new Date(m.criado_em).toLocaleString('pt-BR')}</small></td>
+                                    <td><strong>${m.insumo}</strong></td>
+                                    <td><span class="badge-entrada">+${m.quantidade}</span></td>
+                                    <td><small>${m.usuario_email}</small></td>
+                                </tr>`).join('') : '<tr><td colspan="4">Nenhuma entrada.</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+
+                <div>
+                    <h3 style="color: #991b1b;">📤 Saídas / Baixas</h3>
+                    <table>
+                        <thead><tr><th>Data/Hora</th><th>Insumo</th><th>Qtd</th><th>Usuário</th></tr></thead>
+                        <tbody>
+                            ${(saidas.length > 0) ? saidas.map(m => `
+                                <tr>
+                                    <td><small>${new Date(m.criado_em).toLocaleString('pt-BR')}</small></td>
+                                    <td><strong>${m.insumo}</strong></td>
+                                    <td><span class="badge-saida">-${m.quantidade}</span></td>
+                                    <td><small>${m.usuario_email}</small></td>
+                                </tr>`).join('') : '<tr><td colspan="4">Nenhuma saída.</td></tr>'}
+                        </tbody>
+                    </table>
                 </div>
             </div>
-
-            <!-- SEÇÃO EXCLUSIVA DE LOGS DE ALTERAÇÕES -->
-            <div style="border: 2px solid #64748b; padding: 15px; border-radius: 8px; margin-bottom: 25px; background: #fff;">
-                <h2 style="margin-top:0; color: #334155;">📋 Relatório Separado: Logs de Alterações de Sistema</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Data e Hora</th>
-                            <th>Evento / Ação</th>
-                            <th>Detalhes da Modificação</th>
-                            <th>Usuário Responsável</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${(logsAuditoria && logsAuditoria.length > 0) ? logsAuditoria.map(l => `
-                            <tr>
-                                <td>${new Date(l.criado_em).toLocaleString('pt-BR')}</td>
-                                <td><strong>${l.acao}</strong></td>
-                                <td>${l.detalhe}</td>
-                                <td>${l.usuario_email}</td>
-                            </tr>
-                        `).join('') : '<tr><td colspan="4">Nenhum log registrado para esta obra.</td></tr>'}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- HISTÓRICO DE RDO COM EFETIVO -->
-            <h2>📝 Histórico de Diários de Obra (RDO)</h2>
         `;
+    }
+
+    // 2. RELATÓRIO DE LOGS
+    async function gerarRelatorioLogs() {
+        if (!obraAtivaId) return;
+        const target = document.getElementById('print-logs');
+        const { data: logsAuditoria } = await supabaseClient.from('logs_auditoria').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
+
+        target.innerHTML = `
+            ${obterCabecalhoImpressao('RELATÓRIO DE LOGS DE AUDITORIA E ALTERAÇÕES')}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Data e Hora</th>
+                        <th>Ação / Evento</th>
+                        <th>Detalhes da Modificação</th>
+                        <th>Usuário Responsável</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${(logsAuditoria && logsAuditoria.length > 0) ? logsAuditoria.map(l => `
+                        <tr>
+                            <td>${new Date(l.criado_em).toLocaleString('pt-BR')}</td>
+                            <td><strong>${l.acao}</strong></td>
+                            <td>${l.detalhe}</td>
+                            <td>${l.usuario_email}</td>
+                        </tr>
+                    `).join('') : '<tr><td colspan="4">Nenhum log registrado para esta obra.</td></tr>'}
+                </tbody>
+            </table>
+        `;
+    }
+
+    // 3. RELATÓRIO DO RDO / OBRA
+    async function gerarRelatorioObraRDO() {
+        if (!obraAtivaId) return;
+        const target = document.getElementById('print-obra');
+        const { data: rdos } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraAtivaId).order('data', { ascending: false });
+
+        let html = obterCabecalhoImpressao('RELATÓRIO DIÁRIO DE OBRA (RDO)');
 
         if (!rdos || rdos.length === 0) {
             html += `<p>Nenhum RDO cadastrado para esta obra.</p>`;
@@ -665,6 +717,16 @@
         }
 
         target.innerHTML = html;
+    }
+
+    // IMPRESSÃO INDIVIDUAL DE CADA RELATÓRIO
+    function imprimirAbaSeparada(elementId) {
+        document.querySelectorAll('.print-area').forEach(el => el.classList.remove('print-area'));
+        const target = document.getElementById(elementId);
+        if (target) {
+            target.classList.add('print-area');
+            window.print();
+        }
     }
 
     function abrirModalObra(modo) {

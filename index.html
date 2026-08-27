@@ -30,6 +30,7 @@
         .section { display: none; }
         .active { display: block; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+        .grid-4 { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; }
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; }
         input, select, textarea { width: 100%; padding: 9px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95em; }
@@ -43,6 +44,8 @@
         .login-box { background: white; padding: 30px; border-radius: 10px; width: 420px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .relatorio-header-print { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
         .relatorio-header-print img { height: 65px; }
+        .badge-entrada { background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
+        .badge-saida { background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
         @media print {
             body { background: white; padding: 0; }
             .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
@@ -106,17 +109,26 @@
     <!-- SEÇÃO 1: ALMOXARIFADO -->
     <div id="sec-estoque" class="section active">
         <h2>Almoxarifado Exclusivo - <span class="nomeObraTxt"></span></h2>
-        <div class="form-group no-print grid-3" style="align-items: flex-end;">
+        <div class="form-group no-print grid-4" style="align-items: flex-end;">
             <div>
                 <label>Nome do Insumo</label>
                 <input type="text" id="novoMatNome" placeholder="Ex: Cimento CP II">
             </div>
             <div>
-                <label>Quantidade Adicionada</label>
-                <input type="number" id="novoMatQtd" placeholder="Ex: 100">
+                <label>Tipo de Operação</label>
+                <select id="tipoOperacaoEstoque">
+                    <option value="ENTRADA">📥 Entrada / Recebimento</option>
+                    <option value="SAIDA">📤 Saída / Baixa Material</option>
+                </select>
             </div>
-            <button class="btn-success" onclick="reporEstoque()">+ Receber Insumo</button>
+            <div>
+                <label>Quantidade</label>
+                <input type="number" id="novoMatQtd" placeholder="Ex: 50" min="0.01" step="any">
+            </div>
+            <button class="btn-success" onclick="processarMovimentacaoEstoque()">💾 Salvar Lançamento</button>
         </div>
+        
+        <h3>Saldo Atual do Estoque</h3>
         <table>
             <thead><tr><th>Material / Insumo</th><th>Saldo em Estoque</th></tr></thead>
             <tbody id="tabelaEstoqueCorpo"></tbody>
@@ -248,7 +260,6 @@
 
     document.getElementById('regData').valueAsDate = new Date();
 
-    // CHECAGEM RÍGIDA DE SESSÃO: REDIRECIONA PARA LOGIN SE NÃO TIVER TOKEN VÁLIDO
     document.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await supabaseClient.auth.getSession();
         
@@ -284,6 +295,19 @@
         if (btnUsuarios) btnUsuarios.style.display = isAdmin ? 'inline-block' : 'none';
 
         await carregarObras();
+    }
+
+    // REGISTRO DE AUDITORIA DE SISTEMA (Log de Alterações)
+    async function registrarLog(acao, detalhe) {
+        try {
+            await supabaseClient.from('logs_auditoria').insert([{
+                obra_id: obraAtivaId,
+                usuario_email: usuarioAtual.email,
+                acao: acao,
+                detalhe: detalhe,
+                criado_em: new Date().toISOString()
+            }]);
+        } catch(e) { console.error("Falha ao gravar log:", e); }
     }
 
     function mostrarSecao(idSecao) {
@@ -391,33 +415,53 @@
         const tbody = document.getElementById('tabelaEstoqueCorpo');
         tbody.innerHTML = '';
         (data || []).forEach(item => {
-            tbody.innerHTML += `<tr><td>${item.insumo}</td><td>${item.quantidade}</td></tr>`;
+            tbody.innerHTML += `<tr><td>${item.insumo}</td><td><strong>${item.quantidade}</strong></td></tr>`;
         });
     }
 
-    async function reporEstoque() {
+    async function processarMovimentacaoEstoque() {
         if (!obraAtivaId) return alert("Selecione uma obra ativa.");
         const insumo = document.getElementById('novoMatNome').value.trim().toUpperCase();
-        const quantidade = parseFloat(document.getElementById('novoMatQtd').value);
+        const tipo = document.getElementById('tipoOperacaoEstoque').value;
+        const qtdInput = parseFloat(document.getElementById('novoMatQtd').value);
 
-        if (!insumo || isNaN(quantidade)) return alert("Preencha o insumo e a quantidade.");
+        if (!insumo || isNaN(qtdInput) || qtdInput <= 0) return alert("Informe o insumo e uma quantidade válida.");
 
-        const { data } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).eq('insumo', insumo).single();
-        let novaQtd = data ? (parseFloat(data.quantidade) + quantidade) : quantidade;
+        const { data: estoqueExistente } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).eq('insumo', insumo).single();
+        let saldoAtual = estoqueExistente ? parseFloat(estoqueExistente.quantidade) : 0;
 
-        const { error } = await supabaseClient.from('estoque').upsert({
+        if (tipo === 'SAIDA' && saldoAtual < qtdInput) {
+            return alert(`Saldo insuficiente! Saldo atual de ${insumo}: ${saldoAtual}`);
+        }
+
+        let novoSaldo = tipo === 'ENTRADA' ? (saldoAtual + qtdInput) : (saldoAtual - qtdInput);
+
+        // Atualiza/Upsert no Estoque Saldo Geral
+        const { error: erroEstoque } = await supabaseClient.from('estoque').upsert({
             obra_id: obraAtivaId,
             insumo: insumo,
-            quantidade: novaQtd
+            quantidade: novoSaldo
         }, { onConflict: 'obra_id, insumo' });
 
-        if (!error) {
-            document.getElementById('novoMatNome').value = '';
-            document.getElementById('novoMatQtd').value = '';
-            carregarEstoque();
-        } else {
-            alert("Erro ao atualizar estoque: " + error.message);
-        }
+        if (erroEstoque) return alert("Erro ao atualizar o estoque: " + erroEstoque.message);
+
+        // Registra Histórico de Movimentação com o Usuário Logado
+        await supabaseClient.from('estoque_movimentacoes').insert([{
+            obra_id: obraAtivaId,
+            insumo: insumo,
+            tipo: tipo,
+            quantidade: qtdInput,
+            usuario_email: usuarioAtual.email,
+            criado_em: new Date().toISOString()
+        }]);
+
+        // Grava Auditoria
+        await registrarLog(`ALMOXARIFADO_${tipo}`, `Material: ${insumo} | Qtd: ${qtdInput} | Saldo Final: ${novoSaldo}`);
+
+        document.getElementById('novoMatNome').value = '';
+        document.getElementById('novoMatQtd').value = '';
+        carregarEstoque();
+        alert("Lançamento de almoxarifado salvo com sucesso!");
     }
 
     async function salvarRDO() {
@@ -445,6 +489,7 @@
             clima_tarde: document.getElementById('regClimaTarde').value,
             condicao_trabalho: document.getElementById('regCondicaoTrabalho').value,
             ocorrencias: document.getElementById('regOcorrencias').value,
+            usuario_email: usuarioAtual.email,
             fotos: fotoUrls
         };
 
@@ -452,6 +497,7 @@
         if (error) {
             alert("Erro ao salvar RDO: " + error.message);
         } else {
+            await registrarLog('RDO_CRIADO', `Data RDO: ${rdoPayload.data}`);
             alert("RDO registrado com sucesso!");
             document.getElementById('regOcorrencias').value = '';
             document.getElementById('regFotosInput').value = '';
@@ -460,34 +506,129 @@
 
     async function gerarRelatorio() {
         if (!obraAtivaId) return;
-        const { data } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraAtivaId).order('data', { ascending: false });
+
         const target = document.getElementById('conteudoRelatorio');
         const obra = listaObras.find(o => o.id === obraAtivaId);
-        
-        target.innerHTML = `
+
+        // 1. Consulta RDOs
+        const { data: rdos } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraAtivaId).order('data', { ascending: false });
+
+        // 2. Consulta Saldo Estoque Atual
+        const { data: estoqueAtual } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).order('insumo');
+
+        // 3. Consulta Movimentações de Entrada e Saída
+        const { data: movsEstoque } = await supabaseClient.from('estoque_movimentacoes').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
+
+        // 4. Consulta Logs de Auditoria
+        const { data: logsAuditoria } = await supabaseClient.from('logs_auditoria').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
+
+        let html = `
             <div class="relatorio-header-print">
                 <div><img src="${LOGO_URL}" alt="ASM Engenharia Civil"></div>
                 <div style="text-align: right;">
-                    <h2 style="margin: 0; font-size: 1.3em;">RELATÓRIO DIÁRIO DE OBRA (RDO)</h2>
+                    <h2 style="margin: 0; font-size: 1.3em;">RELATÓRIO CONSOLIDADO DE OBRA E ALMOXARIFADO</h2>
                     <p style="margin: 2px 0 0 0; font-weight: bold;">Obra: ${obra ? obra.nome : ''}</p>
                     <small style="color: #475569;">${obra ? (obra.endereco || '') : ''} ${obra && obra.coordenadas ? '| GPS: ' + obra.coordenadas : ''}</small>
                 </div>
             </div>
+
+            <!-- RELATÓRIO DO ALMOXARIFADO -->
+            <div style="border: 2px solid var(--secondary); padding: 15px; border-radius: 8px; margin-bottom: 25px; background: #fff;">
+                <h2 style="margin-top:0; color: var(--primary);">📦 Relatório do Almoxarifado</h2>
+                
+                <h3>1. Saldo Consolidado em Estoque</h3>
+                <table>
+                    <thead>
+                        <tr><th>Insumo / Material</th><th>Quantidade Atual</th></tr>
+                    </thead>
+                    <tbody>
+                        ${(estoqueAtual && estoqueAtual.length > 0) 
+                            ? estoqueAtual.map(e => `<tr><td><strong>${e.insumo}</strong></td><td>${e.quantidade}</td></tr>`).join('') 
+                            : '<tr><td colspan="2">Nenhum item em estoque.</td></tr>'}
+                    </tbody>
+                </table>
+
+                <h3>2. Histórico de Entradas e Saídas (Lançamento e Baixas)</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data/Hora</th>
+                            <th>Insumo</th>
+                            <th>Operação</th>
+                            <th>Qtd</th>
+                            <th>Usuário Responsável</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(movsEstoque && movsEstoque.length > 0) ? movsEstoque.map(m => {
+                            const dataFmt = new Date(m.criado_em).toLocaleString('pt-BR');
+                            const badge = m.tipo === 'ENTRADA' ? '<span class="badge-entrada">ENTRADA</span>' : '<span class="badge-saida">SAÍDA / BAIXA</span>';
+                            return `
+                                <tr>
+                                    <td>${dataFmt}</td>
+                                    <td><strong>${m.insumo}</strong></td>
+                                    <td>${badge}</td>
+                                    <td>${m.quantidade}</td>
+                                    <td>${m.usuario_email || 'Não Registrado'}</td>
+                                </tr>
+                            `;
+                        }).join('') : '<tr><td colspan="5">Nenhuma movimentação registrada.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- HISTÓRICO DE AUDITORIA DE ALTERAÇÕES DA OBRA -->
+            <div style="border: 1px solid var(--border); padding: 15px; border-radius: 8px; margin-bottom: 25px; background: #fff;">
+                <h2 style="margin-top:0; color: var(--primary);">🔍 Log de Alterações e Edições de Obras</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data/Hora</th>
+                            <th>Ação / Evento</th>
+                            <th>Detalhes</th>
+                            <th>Usuário Responsável</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${(logsAuditoria && logsAuditoria.length > 0) ? logsAuditoria.map(l => {
+                            const dataFmt = new Date(l.criado_em).toLocaleString('pt-BR');
+                            return `
+                                <tr>
+                                    <td>${dataFmt}</td>
+                                    <td><strong>${l.acao}</strong></td>
+                                    <td>${l.detalhe}</td>
+                                    <td>${l.usuario_email}</td>
+                                </tr>
+                            `;
+                        }).join('') : '<tr><td colspan="4">Nenhuma alteração de auditoria gravada.</td></tr>'}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- RELATÓRIOS DIÁRIOS DE OBRA (RDO) -->
+            <h2>📝 Histórico de Diários de Obra (RDO)</h2>
         `;
 
-        (data || []).forEach(rdo => {
-            let fotosHtml = rdo.fotos ? rdo.fotos.map(url => `<div class="foto-card"><img src="${url}"></div>`).join('') : '';
-            target.innerHTML += `
-                <div style="border: 1px solid #cbd5e1; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid;">
-                    <h3 style="margin-top:0;">Data: ${rdo.data} - Responsável: ${rdo.responsavel}</h3>
-                    <p><strong>Fase:</strong> ${rdo.fase || 'N/I'}</p>
-                    <p><strong>Clima:</strong> Manhã: ${rdo.clima_manha} | Tarde: ${rdo.clima_tarde}</p>
-                    <p><strong>Impacto:</strong> ${rdo.condicao_trabalho || 'Trabalho Normal'}</p>
-                    <p><strong>Observações:</strong> ${rdo.ocorrencias || 'Nenhuma'}</p>
-                    <div class="foto-grid">${fotosHtml}</div>
-                </div>
-            `;
-        });
+        if (!rdos || rdos.length === 0) {
+            html += `<p>Nenhum RDO cadastrado para esta obra.</p>`;
+        } else {
+            rdos.forEach(rdo => {
+                let fotosHtml = rdo.fotos ? rdo.fotos.map(url => `<div class="foto-card"><img src="${url}"></div>`).join('') : '';
+                html += `
+                    <div style="border: 1px solid #cbd5e1; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid; background: #fff;">
+                        <h3 style="margin-top:0;">Data: ${rdo.data} - Responsável: ${rdo.responsavel}</h3>
+                        <p><strong>Cadastrado por:</strong> ${rdo.usuario_email || 'Sessão anterior'}</p>
+                        <p><strong>Fase:</strong> ${rdo.fase || 'N/I'}</p>
+                        <p><strong>Clima:</strong> Manhã: ${rdo.clima_manha} | Tarde: ${rdo.clima_tarde}</p>
+                        <p><strong>Impacto:</strong> ${rdo.condicao_trabalho || 'Trabalho Normal'}</p>
+                        <p><strong>Observações:</strong> ${rdo.ocorrencias || 'Nenhuma'}</p>
+                        <div class="foto-grid">${fotosHtml}</div>
+                    </div>
+                `;
+            });
+        }
+
+        target.innerHTML = html;
     }
 
     function abrirModalObra(modo) {
@@ -521,9 +662,14 @@
         if (id) {
             const { error } = await supabaseClient.from('obras').update({ nome, endereco, coordenadas }).eq('id', id);
             if (error) alert("Erro ao atualizar obra: " + error.message);
+            else await registrarLog('EDITAR_OBRA', `Obra id ${id} editada. Nome: ${nome}`);
         } else {
-            const { error } = await supabaseClient.from('obras').insert([{ nome, endereco, coordenadas, status: 'ativa' }]);
+            const { data, error } = await supabaseClient.from('obras').insert([{ nome, endereco, coordenadas, status: 'ativa' }]).select();
             if (error) alert("Erro ao criar obra: " + error.message);
+            else if (data && data[0]) {
+                obraAtivaId = data[0].id;
+                await registrarLog('CRIAR_OBRA', `Obra "${nome}" criada.`);
+            }
         }
 
         fecharModalObra();
@@ -532,22 +678,28 @@
 
     async function arquivarObraAtual() {
         if (!obraAtivaId) return;
+        const obra = listaObras.find(o => o.id === obraAtivaId);
         if (confirm("Deseja realmente arquivar a obra atual?")) {
             await supabaseClient.from('obras').update({ status: 'arquivada' }).eq('id', obraAtivaId);
+            await registrarLog('ARQUIVAR_OBRA', `Obra "${obra?.nome}" arquivada.`);
             obraAtivaId = null;
             await carregarObras();
         }
     }
 
     async function desalquivarObra(id) {
+        const obra = listaObras.find(o => o.id === id);
         await supabaseClient.from('obras').update({ status: 'ativa' }).eq('id', id);
         obraAtivaId = id;
+        await registrarLog('DESARQUIVAR_OBRA', `Obra "${obra?.nome}" reativada.`);
         await carregarObras();
     }
 
     async function excluirObraAtiva() {
         if (!obraAtivaId) return;
+        const obra = listaObras.find(o => o.id === obraAtivaId);
         if (confirm("ATENÇÃO: Deseja excluir esta obra permanentemente?")) {
+            await registrarLog('EXCLUIR_OBRA', `Obra "${obra?.nome}" excluída permanentemente.`);
             await supabaseClient.from('obras').delete().eq('id', obraAtivaId);
             obraAtivaId = null;
             await carregarObras();
@@ -606,6 +758,7 @@
                 if (profileError) {
                     alert("Erro ao configurar perfil: " + profileError.message);
                 } else {
+                    await registrarLog('CRIAR_USUARIO', `Novo usuário cadastrado: ${email}`);
                     alert("Usuário criado com sucesso!");
                     fecharModalUsuario();
                     carregarUsuarios();
@@ -643,7 +796,11 @@
         if (confirm(`Deseja remover o usuário ${email}?`)) {
             const { error } = await supabaseClient.from('perfis').delete().eq('id', id);
             if (error) alert("Erro ao deletar: " + error.message);
-            else { alert("Usuário removido!"); carregarUsuarios(); }
+            else { 
+                await registrarLog('EXCLUIR_USUARIO', `Usuário ${email} removido do sistema.`);
+                alert("Usuário removido!"); 
+                carregarUsuarios(); 
+            }
         }
     }
 </script>

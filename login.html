@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema RDO</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root { --primary: #1e3a8a; --bg: #f8fafc; --border: #cbd5e1; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; color: #1e293b; }
+        .login-card { background: white; padding: 30px; border-radius: 10px; width: 380px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border: 1px solid var(--border); text-align: center; }
+        .form-group { margin-bottom: 15px; text-align: left; }
+        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; }
+        input { width: 100%; padding: 10px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95em; }
+        button { width: 100%; padding: 11px; background-color: #15803d; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 1em; }
+        button:hover { opacity: 0.9; }
+        .logo-img { max-width: 200px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="login-card">
+    <img src="./logo_asm.png" alt="ASM Engenharia Civil" class="logo-img">
+    <h2 style="margin-top:0; color: var(--primary);">Acesso ao Sistema</h2>
+    <div class="form-group">
+        <label>E-mail</label>
+        <input type="email" id="loginEmail" placeholder="seuemail@asm.com.br">
+    </div>
+    <div class="form-group">
+        <label>Senha</label>
+        <input type="password" id="loginSenha" placeholder="Sua senha">
+    </div>
+    <button onclick="fazerLogin()">Entrar no Sistema 🔐</button>
+</div>
+
+<script>
+    const SUPABASE_URL = 'https://babsgbpzjjkqiblvvigh.supabase.co';
+    const SUPABASE_ANON_KEY = "sb_publishable_hfqD7yvZteVjbpbvIt0RBg_JKa5m2k_";
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true }
+    });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            window.location.href = 'index.html';
+        }
+    });
+
+    async function fazerLogin() {
+        const email = document.getElementById('loginEmail').value.trim();
+        const password = document.getElementById('loginSenha').value;
+
+        if (!email || !password) return alert("Por favor, preencha o e-mail e a senha.");
+
+        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        
+        if (error) {
+            alert("Erro na autenticação: " + error.message);
+            return;
+        }
+
+        const usuario = data.user;
+        const { data: perfil } = await supabaseClient.from('perfis').select('senha_temporaria').eq('id', usuario.id).single();
+
+        if (perfil && perfil.senha_temporaria) {
+            const novaSenha = prompt("Sua senha é temporária (123456). Digite uma nova senha (mínimo 6 caracteres):");
+            if (!novaSenha || novaSenha.length < 6) {
+                alert("Senha inválida. Login cancelado.");
+                await supabaseClient.auth.signOut();
+                return;
+            }
+
+            const { error: updateError } = await supabaseClient.auth.updateUser({ password: novaSenha });
+            if (updateError) {
+                alert("Erro ao redefinir a senha: " + updateError.message);
+                await supabaseClient.auth.signOut();
+                return;
+            }
+
+            await supabaseClient.from('perfis').update({ senha_temporaria: false }).eq('id', usuario.id);
+            alert("Senha alterada com sucesso!");
+        }
+
+        window.location.href = 'index.html';
+    }
+</script>
+</body>
+</html>

@@ -879,7 +879,7 @@
         if (!email || !password) return alert("Preencha o e-mail e a senha.");
 
         try {
-            // Chamada HTTP direta na API de Auth do Supabase sem deslogar o Admin
+            // 1. Chamada HTTP direta na API de Auth do Supabase sem deslogar o Admin
             const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
                 method: 'POST',
                 headers: {
@@ -898,18 +898,19 @@
             const newUserId = data.id || data.user?.id;
 
             if (newUserId) {
-                // Insere perfil com senha temporária habilitada
-                const { error: profileError } = await supabaseClient.from('perfis').insert([{
+                // 2. Usamos .upsert() em vez de .insert()
+                // Se a Trigger do Supabase já criou o perfil, o .upsert() apenas ATUALIZA a role e a senha_temporaria
+                const { error: profileError } = await supabaseClient.from('perfis').upsert([{
                     id: newUserId,
                     email: email,
                     role: role,
                     senha_temporaria: true
-                }]);
+                }], { onConflict: 'id' });
 
                 if (profileError) {
-                    alert("Usuário criado no Auth, mas houve erro ao criar o perfil: " + profileError.message);
+                    alert("Usuário criado no Auth, mas houve erro ao atualizar o perfil: " + profileError.message);
                 } else {
-                    alert("Usuário criado com sucesso!");
+                    alert("Usuário criado e configurado com sucesso!");
                     fecharModalUsuario();
                     carregarUsuarios();
                 }

@@ -29,8 +29,9 @@
         .btn-sub { background-color: #64748b; }
         .section { display: none; }
         .active { display: block; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
-        .grid-4 { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 15px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; }
         input, select, textarea { width: 100%; padding: 9px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95em; }
@@ -46,6 +47,7 @@
         .relatorio-header-print img { height: 65px; }
         .badge-entrada { background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
         .badge-saida { background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
+        .card-efetivo { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
         @media print {
             body { background: white; padding: 0; }
             .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
@@ -160,10 +162,22 @@
             </div>
         </div>
 
-        <h3>2. Ocorrências / Observações</h3>
+        <h3>2. Mão de Obra Presente na Obra (Efetivo Diário)</h3>
+        <div class="grid-4 card-efetivo">
+            <div class="form-group"><label>🧱 Pedreiros</label><input type="number" id="efetivoPedreiro" min="0" value="0"></div>
+            <div class="form-group"><label>🧹 Serventes</label><input type="number" id="efetivoServente" min="0" value="0"></div>
+            <div class="form-group"><label>🚜 Operadores de Máquinas</label><input type="number" id="efetivoOperador" min="0" value="0"></div>
+            <div class="form-group"><label>🪵 Carpinteiros</label><input type="number" id="efetivoCarpinteiro" min="0" value="0"></div>
+            <div class="form-group"><label>⚙️ Serralheiros</label><input type="number" id="efetivoSerralheiro" min="0" value="0"></div>
+            <div class="form-group"><label>🚰 Bombeiros Hidráulicos</label><input type="number" id="efetivoBombeiro" min="0" value="0"></div>
+            <div class="form-group"><label>👔 Terceirizados</label><input type="number" id="efetivoTerceirizado" min="0" value="0"></div>
+            <div class="form-group"><label>👷 Outras Funções</label><input type="number" id="efetivoOutros" min="0" value="0"></div>
+        </div>
+
+        <h3>3. Ocorrências / Observações</h3>
         <div class="form-group"><textarea id="regOcorrencias" rows="3"></textarea></div>
 
-        <h3>3. Fotos da Vistoria (Armazenadas no Supabase Storage)</h3>
+        <h3>4. Fotos da Vistoria (Armazenadas no Supabase Storage)</h3>
         <div class="form-group"><input type="file" id="regFotosInput" accept="image/*" multiple></div>
 
         <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; padding: 12px; margin-top: 15px;">💾 Salvar RDO no Banco Cloud</button>
@@ -436,7 +450,6 @@
 
         let novoSaldo = tipo === 'ENTRADA' ? (saldoAtual + qtdInput) : (saldoAtual - qtdInput);
 
-        // Atualiza/Upsert no Estoque Saldo Geral
         const { error: erroEstoque } = await supabaseClient.from('estoque').upsert({
             obra_id: obraAtivaId,
             insumo: insumo,
@@ -445,7 +458,6 @@
 
         if (erroEstoque) return alert("Erro ao atualizar o estoque: " + erroEstoque.message);
 
-        // Registra Histórico de Movimentação com o Usuário Logado
         await supabaseClient.from('estoque_movimentacoes').insert([{
             obra_id: obraAtivaId,
             insumo: insumo,
@@ -455,7 +467,6 @@
             criado_em: new Date().toISOString()
         }]);
 
-        // Grava Auditoria
         await registrarLog(`ALMOXARIFADO_${tipo}`, `Material: ${insumo} | Qtd: ${qtdInput} | Saldo Final: ${novoSaldo}`);
 
         document.getElementById('novoMatNome').value = '';
@@ -480,6 +491,17 @@
             }
         }
 
+        const efetivoObj = {
+            pedreiro: parseInt(document.getElementById('efetivoPedreiro').value) || 0,
+            servente: parseInt(document.getElementById('efetivoServente').value) || 0,
+            operador: parseInt(document.getElementById('efetivoOperador').value) || 0,
+            carpinteiro: parseInt(document.getElementById('efetivoCarpinteiro').value) || 0,
+            serralheiro: parseInt(document.getElementById('efetivoSerralheiro').value) || 0,
+            bombeiro: parseInt(document.getElementById('efetivoBombeiro').value) || 0,
+            terceirizado: parseInt(document.getElementById('efetivoTerceirizado').value) || 0,
+            outros: parseInt(document.getElementById('efetivoOutros').value) || 0
+        };
+
         const rdoPayload = {
             obra_id: obraAtivaId,
             data: document.getElementById('regData').value,
@@ -490,7 +512,8 @@
             condicao_trabalho: document.getElementById('regCondicaoTrabalho').value,
             ocorrencias: document.getElementById('regOcorrencias').value,
             usuario_email: usuarioAtual.email,
-            fotos: fotoUrls
+            fotos: fotoUrls,
+            efetivo: efetivoObj
         };
 
         const { error } = await supabaseClient.from('rdos').insert([rdoPayload]);
@@ -510,37 +533,31 @@
         const target = document.getElementById('conteudoRelatorio');
         const obra = listaObras.find(o => o.id === obraAtivaId);
 
-        // 1. Consulta RDOs
         const { data: rdos } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraAtivaId).order('data', { ascending: false });
-
-        // 2. Consulta Saldo Estoque Atual
         const { data: estoqueAtual } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).order('insumo');
-
-        // 3. Consulta Movimentações de Entrada e Saída
         const { data: movsEstoque } = await supabaseClient.from('estoque_movimentacoes').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
-
-        // 4. Consulta Logs de Auditoria
         const { data: logsAuditoria } = await supabaseClient.from('logs_auditoria').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
+
+        const entradas = (movsEstoque || []).filter(m => m.tipo === 'ENTRADA');
+        const saidas = (movsEstoque || []).filter(m => m.tipo === 'SAIDA');
 
         let html = `
             <div class="relatorio-header-print">
                 <div><img src="${LOGO_URL}" alt="ASM Engenharia Civil"></div>
                 <div style="text-align: right;">
-                    <h2 style="margin: 0; font-size: 1.3em;">RELATÓRIO CONSOLIDADO DE OBRA E ALMOXARIFADO</h2>
+                    <h2 style="margin: 0; font-size: 1.3em;">RELATÓRIO GERENCIAL INTEGRADO DE OBRA</h2>
                     <p style="margin: 2px 0 0 0; font-weight: bold;">Obra: ${obra ? obra.nome : ''}</p>
                     <small style="color: #475569;">${obra ? (obra.endereco || '') : ''} ${obra && obra.coordenadas ? '| GPS: ' + obra.coordenadas : ''}</small>
                 </div>
             </div>
 
-            <!-- RELATÓRIO DO ALMOXARIFADO -->
+            <!-- SEÇÃO DE ALMOXARIFADO -->
             <div style="border: 2px solid var(--secondary); padding: 15px; border-radius: 8px; margin-bottom: 25px; background: #fff;">
-                <h2 style="margin-top:0; color: var(--primary);">📦 Relatório do Almoxarifado</h2>
+                <h2 style="margin-top:0; color: var(--primary);">📦 Relatório de Saldo e Movimentações de Materiais</h2>
                 
                 <h3>1. Saldo Consolidado em Estoque</h3>
                 <table>
-                    <thead>
-                        <tr><th>Insumo / Material</th><th>Quantidade Atual</th></tr>
-                    </thead>
+                    <thead><tr><th>Insumo / Material</th><th>Saldo Atual</th></tr></thead>
                     <tbody>
                         ${(estoqueAtual && estoqueAtual.length > 0) 
                             ? estoqueAtual.map(e => `<tr><td><strong>${e.insumo}</strong></td><td>${e.quantidade}</td></tr>`).join('') 
@@ -548,64 +565,67 @@
                     </tbody>
                 </table>
 
-                <h3>2. Histórico de Entradas e Saídas (Lançamento e Baixas)</h3>
+                <div class="grid-2">
+                    <div>
+                        <h3 style="color: #166534;">📥 Entradas / Recebimentos</h3>
+                        <table>
+                            <thead><tr><th>Data/Hora</th><th>Insumo</th><th>Qtd</th><th>Usuário</th></tr></thead>
+                            <tbody>
+                                ${(entradas.length > 0) ? entradas.map(m => `
+                                    <tr>
+                                        <td><small>${new Date(m.criado_em).toLocaleString('pt-BR')}</small></td>
+                                        <td><strong>${m.insumo}</strong></td>
+                                        <td><span class="badge-entrada">+${m.quantidade}</span></td>
+                                        <td><small>${m.usuario_email}</small></td>
+                                    </tr>`).join('') : '<tr><td colspan="4">Nenhuma entrada.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div>
+                        <h3 style="color: #991b1b;">📤 Saídas / Baixas</h3>
+                        <table>
+                            <thead><tr><th>Data/Hora</th><th>Insumo</th><th>Qtd</th><th>Usuário</th></tr></thead>
+                            <tbody>
+                                ${(saidas.length > 0) ? saidas.map(m => `
+                                    <tr>
+                                        <td><small>${new Date(m.criado_em).toLocaleString('pt-BR')}</small></td>
+                                        <td><strong>${m.insumo}</strong></td>
+                                        <td><span class="badge-saida">-${m.quantidade}</span></td>
+                                        <td><small>${m.usuario_email}</small></td>
+                                    </tr>`).join('') : '<tr><td colspan="4">Nenhuma saída.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SEÇÃO EXCLUSIVA DE LOGS DE ALTERAÇÕES -->
+            <div style="border: 2px solid #64748b; padding: 15px; border-radius: 8px; margin-bottom: 25px; background: #fff;">
+                <h2 style="margin-top:0; color: #334155;">📋 Relatório Separado: Logs de Alterações de Sistema</h2>
                 <table>
                     <thead>
                         <tr>
-                            <th>Data/Hora</th>
-                            <th>Insumo</th>
-                            <th>Operação</th>
-                            <th>Qtd</th>
+                            <th>Data e Hora</th>
+                            <th>Evento / Ação</th>
+                            <th>Detalhes da Modificação</th>
                             <th>Usuário Responsável</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${(movsEstoque && movsEstoque.length > 0) ? movsEstoque.map(m => {
-                            const dataFmt = new Date(m.criado_em).toLocaleString('pt-BR');
-                            const badge = m.tipo === 'ENTRADA' ? '<span class="badge-entrada">ENTRADA</span>' : '<span class="badge-saida">SAÍDA / BAIXA</span>';
-                            return `
-                                <tr>
-                                    <td>${dataFmt}</td>
-                                    <td><strong>${m.insumo}</strong></td>
-                                    <td>${badge}</td>
-                                    <td>${m.quantidade}</td>
-                                    <td>${m.usuario_email || 'Não Registrado'}</td>
-                                </tr>
-                            `;
-                        }).join('') : '<tr><td colspan="5">Nenhuma movimentação registrada.</td></tr>'}
+                        ${(logsAuditoria && logsAuditoria.length > 0) ? logsAuditoria.map(l => `
+                            <tr>
+                                <td>${new Date(l.criado_em).toLocaleString('pt-BR')}</td>
+                                <td><strong>${l.acao}</strong></td>
+                                <td>${l.detalhe}</td>
+                                <td>${l.usuario_email}</td>
+                            </tr>
+                        `).join('') : '<tr><td colspan="4">Nenhum log registrado para esta obra.</td></tr>'}
                     </tbody>
                 </table>
             </div>
 
-            <!-- HISTÓRICO DE AUDITORIA DE ALTERAÇÕES DA OBRA -->
-            <div style="border: 1px solid var(--border); padding: 15px; border-radius: 8px; margin-bottom: 25px; background: #fff;">
-                <h2 style="margin-top:0; color: var(--primary);">🔍 Log de Alterações e Edições de Obras</h2>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Data/Hora</th>
-                            <th>Ação / Evento</th>
-                            <th>Detalhes</th>
-                            <th>Usuário Responsável</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${(logsAuditoria && logsAuditoria.length > 0) ? logsAuditoria.map(l => {
-                            const dataFmt = new Date(l.criado_em).toLocaleString('pt-BR');
-                            return `
-                                <tr>
-                                    <td>${dataFmt}</td>
-                                    <td><strong>${l.acao}</strong></td>
-                                    <td>${l.detalhe}</td>
-                                    <td>${l.usuario_email}</td>
-                                </tr>
-                            `;
-                        }).join('') : '<tr><td colspan="4">Nenhuma alteração de auditoria gravada.</td></tr>'}
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- RELATÓRIOS DIÁRIOS DE OBRA (RDO) -->
+            <!-- HISTÓRICO DE RDO COM EFETIVO -->
             <h2>📝 Histórico de Diários de Obra (RDO)</h2>
         `;
 
@@ -614,13 +634,29 @@
         } else {
             rdos.forEach(rdo => {
                 let fotosHtml = rdo.fotos ? rdo.fotos.map(url => `<div class="foto-card"><img src="${url}"></div>`).join('') : '';
+                const ef = rdo.efetivo || {};
+                const totalEfetivo = (ef.pedreiro||0)+(ef.servente||0)+(ef.operador||0)+(ef.carpinteiro||0)+(ef.serralheiro||0)+(ef.bombeiro||0)+(ef.terceirizado||0)+(ef.outros||0);
+
                 html += `
                     <div style="border: 1px solid #cbd5e1; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid; background: #fff;">
                         <h3 style="margin-top:0;">Data: ${rdo.data} - Responsável: ${rdo.responsavel}</h3>
-                        <p><strong>Cadastrado por:</strong> ${rdo.usuario_email || 'Sessão anterior'}</p>
-                        <p><strong>Fase:</strong> ${rdo.fase || 'N/I'}</p>
-                        <p><strong>Clima:</strong> Manhã: ${rdo.clima_manha} | Tarde: ${rdo.clima_tarde}</p>
-                        <p><strong>Impacto:</strong> ${rdo.condicao_trabalho || 'Trabalho Normal'}</p>
+                        <p><strong>Cadastrado por:</strong> ${rdo.usuario_email || 'N/A'} | <strong>Fase:</strong> ${rdo.fase || 'N/I'}</p>
+                        <p><strong>Clima:</strong> Manhã: ${rdo.clima_manha} | Tarde: ${rdo.clima_tarde} | <strong>Condição:</strong> ${rdo.condicao_trabalho}</p>
+                        
+                        <div style="background: #f1f5f9; padding: 10px; border-radius: 6px; margin: 10px 0;">
+                            <strong>👥 Efetivo Presente na Obra (Total: ${totalEfetivo} pessoas):</strong>
+                            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 5px; font-size: 0.88em;">
+                                <span>🧱 Pedreiros: <b>${ef.pedreiro||0}</b></span>
+                                <span>🧹 Serventes: <b>${ef.servente||0}</b></span>
+                                <span>🚜 Operadores: <b>${ef.operador||0}</b></span>
+                                <span>🪵 Carpinteiros: <b>${ef.carpinteiro||0}</b></span>
+                                <span>⚙️ Serralheiros: <b>${ef.serralheiro||0}</b></span>
+                                <span>🚰 Bombeiros: <b>${ef.bombeiro||0}</b></span>
+                                <span>👔 Terceirizados: <b>${ef.terceirizado||0}</b></span>
+                                <span>👷 Outros: <b>${ef.outros||0}</b></span>
+                            </div>
+                        </div>
+
                         <p><strong>Observações:</strong> ${rdo.ocorrencias || 'Nenhuma'}</p>
                         <div class="foto-grid">${fotosHtml}</div>
                     </div>

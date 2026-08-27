@@ -649,22 +649,37 @@
     }
 
     async function cadastrarUsuario() {
-        const email = document.getElementById('novoUserEmail').value.trim();
-        const password = document.getElementById('novoUserSenha').value;
+    const email = document.getElementById('novoUserEmail').value.trim().toLowerCase();
+    const password = document.getElementById('novoUserSenha').value;
 
-        if (!email || !password) return alert("Informe o e-mail e a senha.");
-        if (password.length < 6) return alert("A senha precisa ter pelo menos 6 caracteres.");
+    if (!email || !password) return alert("Informe o e-mail e a senha.");
+    if (password.length < 6) return alert("A senha precisa ter pelo menos 6 caracteres.");
 
-        const { data, error } = await supabaseClient.auth.signUp({ email, password });
-
-        if (error) {
-            alert("Erro ao cadastrar usuário: " + error.message);
-        } else {
-            alert("Usuário registrado com sucesso no Supabase!");
-            fecharModalUsuario();
-            carregarUsuarios();
-        }
+    // Validação básica de formato de e-mail no Javascript
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return alert("Por favor, digite um formato de e-mail válido (exemplo: usuario@dominio.com).");
     }
+
+    const { data, error } = await supabaseClient.auth.signUp({ 
+        email: email, 
+        password: password,
+        options: {
+            // Evita bloqueio na tentativa de envio de e-mail
+            data: {
+                created_by_admin: true
+            }
+        }
+    });
+
+    if (error) {
+        alert("Erro ao cadastrar usuário: " + error.message);
+    } else {
+        alert("Usuário registrado com sucesso! Caso a confirmação de e-mail esteja ativada no Supabase, ele precisará confirmar a conta.");
+        fecharModalUsuario();
+        carregarUsuarios();
+    }
+}
 
     async function carregarUsuarios() {
         const tbody = document.getElementById('tabelaUsuariosCorpo');

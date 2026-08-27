@@ -48,8 +48,8 @@
         .login-box { background: white; padding: 30px; border-radius: 10px; width: 420px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .relatorio-header-print { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
         .relatorio-header-print img { height: 65px; }
-        .badge-entrada { background-color: #dcfce7; color: #166534; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
-        .badge-saida { background-color: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
+        .badge-entrada { background-color: #dcfce7; color: #166534; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
+        .badge-saida { background-color: #fee2e2; color: #991b1b; padding: 4px 8px; border-radius: 12px; font-weight: bold; font-size: 0.85em; }
         .card-efetivo { background: #f8fafc; border: 1px solid var(--border); border-radius: 6px; padding: 10px; }
         @media print {
             body { background: white; padding: 0; }
@@ -341,7 +341,6 @@
         await carregarObras();
     }
 
-    // REGISTRO DE LOG COMPATÍVEL COM SUPABASE E COMPORTAMENTO AUDITÁVEL
     async function registrarLog(acao, detalhe, targetObraId = null) {
         try {
             await supabaseClient.from('logs_auditoria').insert([{
@@ -488,7 +487,8 @@
 
         if (erroEstoque) return alert("Erro ao atualizar o estoque: " + erroEstoque.message);
 
-        await supabaseClient.from('estoque_movimentacoes').insert([{
+        // GRAVA A MOVIMENTAÇÃO COM E-MAIL DO USUÁRIO RESPONSÁVEL
+        const { error: erroMov } = await supabaseClient.from('estoque_movimentacoes').insert([{
             obra_id: obraAtivaId,
             insumo: insumo,
             tipo: tipo,
@@ -496,6 +496,10 @@
             usuario_email: usuarioAtual.email,
             criado_em: new Date().toISOString()
         }]);
+
+        if (erroMov) {
+            console.error("Erro ao registrar movimentação no histórico:", erroMov);
+        }
 
         await registrarLog(`ALMOXARIFADO_${tipo}`, `Material: ${insumo} | Qtd: ${qtdInput} | Saldo Final: ${novoSaldo}`);
 
@@ -565,7 +569,6 @@
         }
     }
 
-    // CONTROLE DE MODAL E MANUTENÇÃO DE OBRAS
     function abrirModalObra(modo) {
         document.getElementById('modal-obra-overlay').style.display = 'flex';
         if (modo === 'criar') {
@@ -625,16 +628,13 @@
         await carregarObras();
     }
 
-    // CORREÇÃO ESSENCIAL: Grava o log da exclusão ANTES de remover a obra
     async function excluirObraAtiva() {
         if (!obraAtivaId) return;
         const obra = listaObras.find(o => o.id === obraAtivaId);
         if (!confirm(`ATENÇÃO: Deseja realmente EXCLUIR permanentemente a obra "${obra?.nome}"?\n\nEsta ação não poderá ser desfeita!`)) return;
 
-        // 1. Grava PRIMEIRO o log de auditoria informando QUEM e QUAL obra excluiu
         await registrarLog('OBRA_EXCLUIDA', `A obra "${obra?.nome}" (ID: ${obraAtivaId}) foi excluída permanentemente pelo usuário: ${usuarioAtual.email}`);
 
-        // 2. Remove a obra do banco de dados (o banco não apagará os logs pois o obra_id vira NULL)
         const { error } = await supabaseClient.from('obras').delete().eq('id', obraAtivaId);
         if (error) return alert("Erro ao excluir obra: " + error.message);
 
@@ -686,7 +686,6 @@
         });
     }
 
-    // CONTROLE DE SUB-ABAS DOS RELATÓRIOS
     async function carregarAbaRelatorio(subAbaId) {
         document.querySelectorAll('.sub-section').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.btn-tab').forEach(el => el.classList.remove('active-tab'));
@@ -713,7 +712,7 @@
         `;
     }
 
-    // 1. RELATÓRIO DO ALMOXARIFADO
+    // 1. RELATÓRIO DO ALMOXARIFADO (EXIBINDO SAÍDAS/ENTRADAS COM USUÁRIO E QUANTIDADE)
     async function gerarRelatorioAlmoxarifado() {
         if (!obraAtivaId) return;
         const target = document.getElementById('print-almoxarifado');
@@ -733,18 +732,18 @@
                 </tbody>
             </table>
 
-            <h3>2. Histórico de Entradas e Saídas</h3>
+            <h3>2. Histórico de Entradas e Baixas (Saídas)</h3>
             <table>
-                <thead><tr><th>Data / Hora</th><th>Tipo</th><th>Material</th><th>Qtd</th><th>Usuário</th></tr></thead>
+                <thead><tr><th>Data / Hora</th><th>Tipo</th><th>Material</th><th>Qtd Movimentada</th><th>Usuário Responsável</th></tr></thead>
                 <tbody>
                     ${(movsEstoque && movsEstoque.length > 0)
                         ? movsEstoque.map(m => `
                             <tr>
                                 <td>${new Date(m.criado_em).toLocaleString('pt-BR')}</td>
-                                <td><span class="${m.tipo === 'ENTRADA' ? 'badge-entrada' : 'badge-saida'}">${m.tipo}</span></td>
-                                <td>${m.insumo}</td>
-                                <td>${m.quantidade}</td>
-                                <td>${m.usuario_email || 'SISTEMA'}</td>
+                                <td><span class="${m.tipo === 'ENTRADA' ? 'badge-entrada' : 'badge-saida'}">${m.tipo === 'SAIDA' ? '📤 SAÍDA / BAIXA' : '📥 ENTRADA'}</span></td>
+                                <td><strong>${m.insumo}</strong></td>
+                                <td><strong>${m.quantidade}</strong></td>
+                                <td>${m.usuario_email || 'Não Registrado'}</td>
                             </tr>
                         `).join('')
                         : '<tr><td colspan="5">Nenhuma movimentação registrada.</td></tr>'}
@@ -753,11 +752,10 @@
         `;
     }
 
-    // 2. RELATÓRIO DE LOGS (Auditoria total, incluindo exclusões)
+    // 2. RELATÓRIO DE LOGS
     async function gerarRelatorioLogs() {
         const target = document.getElementById('print-logs');
         
-        // Busca os logs associados à obra ativa OU logs gerais de exclusões onde obra_id ficou nulo
         let query = supabaseClient.from('logs_auditoria').select('*').order('criado_em', { ascending: false });
         if (obraAtivaId) {
             query = query.or(`obra_id.eq.${obraAtivaId},obra_id.is.null`);
@@ -869,7 +867,7 @@
         janelaPrint.document.close();
     }
 
-    // MANUTENÇÃO DE USUÁRIOS
+    // MANUTENÇÃO DE USUÁRIOS E RESET DE SENHA
     async function carregarUsuarios() {
         const { data: perfis, error } = await supabaseClient.from('perfis').select('*');
         if (error) return alert("Erro ao carregar usuários: " + error.message);
@@ -884,9 +882,10 @@
                     <td><strong>${p.email}</strong> ${ehSuperAdmin ? '👑' : ''}</td>
                     <td>${p.role === 'admin' ? '⭐ Administrador' : '👷 Operador'}</td>
                     <td><small style="color:#64748b;">${p.id}</small></td>
-                    <td style="text-align: center;">
+                    <td style="text-align: center; display: flex; gap: 5px; justify-content: center;">
                         ${!ehSuperAdmin ? `
                             <button class="btn-warning" style="padding:4px 8px; font-size:0.8em;" onclick="alterarRoleUsuario('${p.id}', '${p.role === 'admin' ? 'operador' : 'admin'}')">Alternar Perfil</button>
+                            <button class="btn-danger" style="padding:4px 8px; font-size:0.8em;" onclick="resetarSenhaUsuario('${p.id}', '${p.email}')">🔑 Resetar Senha</button>
                         ` : '<em>Inalterável</em>'}
                     </td>
                 </tr>
@@ -926,6 +925,25 @@
         if (error) return alert("Erro ao alterar privilégio: " + error.message);
         await registrarLog('USUARIO_PERFIL_ALTERADO', `Perfil do usuário ${id} alterado para ${novoRole}`);
         carregarUsuarios();
+    }
+
+    // REINCLUÍDA A FUNÇÃO DE RESET DE SENHA PARA A SENHA INICIAL (123456)
+    async function resetarSenhaUsuario(id, email) {
+        if (!confirm(`Deseja redefinir a senha do usuário "${email}" para a senha padrão "123456"?`)) return;
+
+        const { error } = await supabaseClient.auth.admin.updateUserById(id, { password: '123456' });
+        
+        if (error) {
+            // Caso a chave anon do Supabase não tenha permissão de admin.updateUserById no client-side
+            alert("Nota: A redefinição direta exige permissão administrativa no Supabase. Um e-mail de redefinição de senha também pode ser enviado.");
+            const { error: resetErr } = await supabaseClient.auth.resetPasswordForEmail(email);
+            if (resetErr) return alert("Erro ao enviar e-mail de redefinição: " + resetErr.message);
+            alert(`E-mail para redefinição de senha enviado com sucesso para "${email}".`);
+        } else {
+            alert(`A senha do usuário "${email}" foi redefinida para "123456" com sucesso!`);
+        }
+
+        await registrarLog('USUARIO_RESET_SENHA', `Solicitado reset de senha para o usuário: ${email}`);
     }
 </script>
 </body>

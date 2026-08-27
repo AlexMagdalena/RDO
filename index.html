@@ -464,41 +464,6 @@
     document.getElementById('imgLogoLogin').src = LOGO_URL;
     document.getElementById('imgLogoHeader').src = LOGO_URL;
 
--- Função para criar usuário via Admin mantendo a sessão atual
-CREATE OR REPLACE FUNCTION admin_criar_usuario(
-  p_email TEXT,
-  p_senha TEXT,
-  p_role TEXT DEFAULT 'operador'
-)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER -- Permite executar a função com privilégios de administrador
-AS $$
-DECLARE
-  v_user_id UUID;
-BEGIN
-  -- Cria o usuário na tabela interna do Supabase Auth
-  v_user_id := gen_random_uuid();
-  
-  INSERT INTO auth.users (id, email, encrypted_password, email_confirmed_at, role)
-  VALUES (
-    v_user_id,
-    p_email,
-    crypt(p_senha, gen_salt('bf')),
-    now(),
-    'authenticated'
-  );
-
-  -- insere ou atualiza os dados na tabela pública de perfis
-  INSERT INTO public.perfis (id, role, senha_temporaria)
-  VALUES (v_user_id, p_role, true)
-  ON CONFLICT (id) DO UPDATE
-  SET role = EXCLUDED.role, senha_temporaria = true;
-
-  RETURN v_user_id;
-END;
-$$;
-    
     // VERIFICAÇÃO AUTOMÁTICA DE SESSÃO AO CARREGAR
     document.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await supabaseClient.auth.getSession();

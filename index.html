@@ -341,10 +341,11 @@
         await carregarObras();
     }
 
-    async function registrarLog(acao, detalhe) {
+    // REGISTRO DE LOG COMPATÍVEL COM SUPABASE E COMPORTAMENTO AUDITÁVEL
+    async function registrarLog(acao, detalhe, targetObraId = null) {
         try {
             await supabaseClient.from('logs_auditoria').insert([{
-                obra_id: obraAtivaId,
+                obra_id: targetObraId || obraAtivaId,
                 usuario_email: usuarioAtual.email,
                 acao: acao,
                 detalhe: detalhe,
@@ -501,10 +502,8 @@
         document.getElementById('novoMatNome').value = '';
         document.getElementById('novoMatQtd').value = '';
         
-        // Atualiza o estoque na tela e recarrega dados atualizados dos relatórios/logs
         await carregarEstoque();
         
-        // Se a aba de relatórios já estiver aberta/visível, atualiza dinamicamente
         const abaAlmoxVisivel = document.getElementById('rel-almoxarifado')?.classList.contains('active');
         const abaLogsVisivel = document.getElementById('rel-logs')?.classList.contains('active');
         
@@ -566,6 +565,127 @@
         }
     }
 
+    // CONTROLE DE MODAL E MANUTENÇÃO DE OBRAS
+    function abrirModalObra(modo) {
+        document.getElementById('modal-obra-overlay').style.display = 'flex';
+        if (modo === 'criar') {
+            document.getElementById('modalObraTitulo').textContent = '🏗️ Nova Obra';
+            document.getElementById('obraIdEdicao').value = '';
+            document.getElementById('modalObraNome').value = '';
+            document.getElementById('modalObraEndereco').value = '';
+            document.getElementById('modalObraCoordenadas').value = '';
+        } else {
+            const obra = listaObras.find(o => o.id === obraAtivaId);
+            if (!obra) return fecharModalObra();
+            document.getElementById('modalObraTitulo').textContent = '✏️ Editar Obra';
+            document.getElementById('obraIdEdicao').value = obra.id;
+            document.getElementById('modalObraNome').value = obra.nome;
+            document.getElementById('modalObraEndereco').value = obra.endereco || '';
+            document.getElementById('modalObraCoordenadas').value = obra.coordenadas || '';
+        }
+    }
+
+    function fecharModalObra() {
+        document.getElementById('modal-obra-overlay').style.display = 'none';
+    }
+
+    async function salvarObraModal() {
+        const id = document.getElementById('obraIdEdicao').value;
+        const nome = document.getElementById('modalObraNome').value.trim();
+        const endereco = document.getElementById('modalObraEndereco').value.trim();
+        const coordenadas = document.getElementById('modalObraCoordenadas').value.trim();
+
+        if (!nome) return alert("O nome da obra é obrigatório.");
+
+        if (id) {
+            const { error } = await supabaseClient.from('obras').update({ nome, endereco, coordenadas }).eq('id', id);
+            if (error) return alert("Erro ao editar obra: " + error.message);
+            await registrarLog('OBRA_EDITADA', `Obra id:${id} atualizada para "${nome}"`);
+        } else {
+            const { data, error } = await supabaseClient.from('obras').insert([{ nome, endereco, coordenadas, status: 'ativa' }]).select().single();
+            if (error) return alert("Erro ao criar obra: " + error.message);
+            obraAtivaId = data.id;
+            await registrarLog('OBRA_CRIADA', `Obra "${nome}" cadastrada.`, data.id);
+        }
+
+        fecharModalObra();
+        await carregarObras();
+    }
+
+    async function arquivarObraAtual() {
+        if (!obraAtivaId) return;
+        const obra = listaObras.find(o => o.id === obraAtivaId);
+        if (!confirm(`Deseja realmente arquivar a obra "${obra?.nome}"?`)) return;
+
+        const { error } = await supabaseClient.from('obras').update({ status: 'arquivada' }).eq('id', obraAtivaId);
+        if (error) return alert("Erro ao arquivar: " + error.message);
+
+        await registrarLog('OBRA_ARQUIVADA', `Obra "${obra?.nome}" foi arquivada.`);
+        obraAtivaId = null;
+        await carregarObras();
+    }
+
+    // CORREÇÃO ESSENCIAL: Grava o log da exclusão ANTES de remover a obra
+    async function excluirObraAtiva() {
+        if (!obraAtivaId) return;
+        const obra = listaObras.find(o => o.id === obraAtivaId);
+        if (!confirm(`ATENÇÃO: Deseja realmente EXCLUIR permanentemente a obra "${obra?.nome}"?\n\nEsta ação não poderá ser desfeita!`)) return;
+
+        // 1. Grava PRIMEIRO o log de auditoria informando QUEM e QUAL obra excluiu
+        await registrarLog('OBRA_EXCLUIDA', `A obra "${obra?.nome}" (ID: ${obraAtivaId}) foi excluída permanentemente pelo usuário: ${usuarioAtual.email}`);
+
+        // 2. Remove a obra do banco de dados (o banco não apagará os logs pois o obra_id vira NULL)
+        const { error } = await supabaseClient.from('obras').delete().eq('id', obraAtivaId);
+        if (error) return alert("Erro ao excluir obra: " + error.message);
+
+        alert("Obra excluída com sucesso. O log de alteração foi preservado.");
+        obraAtivaId = null;
+        await carregarObras();
+    }
+
+    async function desalquivarObra(id) {
+        const { error } = await supabaseClient.from('obras').update({ status: 'ativa' }).eq('id', id);
+        if (error) return alert("Erro ao desarquivar: " + error.message);
+        obraAtivaId = id;
+        await registrarLog('OBRA_DESARQUIVADA', `Obra desarquivada.`, id);
+        await carregarObras();
+    }
+
+    async function excluirObraArquivada(id, nome) {
+        if (!confirm(`Deseja excluir permanentemente a obra arquivada "${nome}"?`)) return;
+
+        await registrarLog('OBRA_EXCLUIDA', `A obra arquivada "${nome}" (ID: ${id}) foi excluída pelo usuário: ${usuarioAtual.email}`, id);
+
+        const { error } = await supabaseClient.from('obras').delete().eq('id', id);
+        if (error) return alert("Erro ao excluir obra arquivada: " + error.message);
+
+        alert("Obra excluída com sucesso. O log de alteração foi preservado.");
+        await carregarObras();
+    }
+
+    function atualizarTabelaArquivadas() {
+        const tbody = document.getElementById('tabelaObrasArquivadas');
+        tbody.innerHTML = '';
+        const arquivadas = listaObras.filter(o => o.status === 'arquivada');
+
+        if (arquivadas.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="2">Nenhuma obra arquivada.</td></tr>';
+            return;
+        }
+
+        arquivadas.forEach(o => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><strong>${o.nome}</strong></td>
+                    <td>
+                        <button class="btn-success" style="padding: 4px 8px; font-size:0.8em;" onclick="desalquivarObra('${o.id}')">📂 Desarquivar</button>
+                        <button class="btn-danger" style="padding: 4px 8px; font-size:0.8em;" onclick="excluirObraArquivada('${o.id}', '${o.nome}')">🗑️ Excluir</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
     // CONTROLE DE SUB-ABAS DOS RELATÓRIOS
     async function carregarAbaRelatorio(subAbaId) {
         document.querySelectorAll('.sub-section').forEach(el => el.classList.remove('active'));
@@ -586,7 +706,7 @@
                 <div><img src="${LOGO_URL}" alt="ASM Engenharia Civil"></div>
                 <div style="text-align: right;">
                     <h2 style="margin: 0; font-size: 1.2em;">${tituloRelatorio}</h2>
-                    <p style="margin: 2px 0 0 0; font-weight: bold;">Obra: ${obra ? obra.nome : ''}</p>
+                    <p style="margin: 2px 0 0 0; font-weight: bold;">Obra: ${obra ? obra.nome : 'Geral / Histórico'}</p>
                     <small style="color: #475569;">${obra ? (obra.endereco || '') : ''} ${obra && obra.coordenadas ? '| GPS: ' + obra.coordenadas : ''}</small>
                 </div>
             </div>
@@ -600,9 +720,6 @@
         const { data: estoqueAtual } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).order('insumo');
         const { data: movsEstoque } = await supabaseClient.from('estoque_movimentacoes').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
 
-        const entradas = (movsEstoque || []).filter(m => m.tipo === 'ENTRADA');
-        const saidas = (movsEstoque || []).filter(m => m.tipo === 'SAIDA');
-
         target.innerHTML = `
             ${obterCabecalhoImpressao('RELATÓRIO DO ALMOXARIFADO & MOVIMENTAÇÃO DE MATERIAIS')}
             
@@ -612,118 +729,107 @@
                 <tbody>
                     ${(estoqueAtual && estoqueAtual.length > 0) 
                         ? estoqueAtual.map(e => `<tr><td><strong>${e.insumo}</strong></td><td>${e.quantidade}</td></tr>`).join('') 
-                        : '<tr><td colspan="2">Nenhum item em estoque.</td></tr>'}
+                        : '<tr><td colspan="2">Nenhum registro de estoque.</td></tr>'}
                 </tbody>
             </table>
 
-            <div class="grid-2">
-                <div>
-                    <h3 style="color: #166534;">📥 Entradas / Recebimentos</h3>
-                    <table>
-                        <thead><tr><th>Data/Hora</th><th>Insumo</th><th>Qtd</th><th>Usuário</th></tr></thead>
-                        <tbody>
-                            ${(entradas && entradas.length > 0)
-                                ? entradas.map(e => `<tr><td>${new Date(e.criado_em).toLocaleString('pt-BR')}</td><td>${e.insumo}</td><td><span class="badge-entrada">+${e.quantidade}</span></td><td>${e.usuario_email || 'N/I'}</td></tr>`).join('')
-                                : '<tr><td colspan="4">Nenhuma entrada registrada.</td></tr>'}
-                        </tbody>
-                    </table>
-                </div>
-                <div>
-                    <h3 style="color: #991b1b;">📤 Saídas / Baixas de Material</h3>
-                    <table>
-                        <thead><tr><th>Data/Hora</th><th>Insumo</th><th>Qtd</th><th>Usuário</th></tr></thead>
-                        <tbody>
-                            ${(saidas && saidas.length > 0)
-                                ? saidas.map(s => `<tr><td>${new Date(s.criado_em).toLocaleString('pt-BR')}</td><td>${s.insumo}</td><td><span class="badge-saida">-${s.quantidade}</span></td><td>${s.usuario_email || 'N/I'}</td></tr>`).join('')
-                                : '<tr><td colspan="4">Nenhuma baixa registrada.</td></tr>'}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+            <h3>2. Histórico de Entradas e Saídas</h3>
+            <table>
+                <thead><tr><th>Data / Hora</th><th>Tipo</th><th>Material</th><th>Qtd</th><th>Usuário</th></tr></thead>
+                <tbody>
+                    ${(movsEstoque && movsEstoque.length > 0)
+                        ? movsEstoque.map(m => `
+                            <tr>
+                                <td>${new Date(m.criado_em).toLocaleString('pt-BR')}</td>
+                                <td><span class="${m.tipo === 'ENTRADA' ? 'badge-entrada' : 'badge-saida'}">${m.tipo}</span></td>
+                                <td>${m.insumo}</td>
+                                <td>${m.quantidade}</td>
+                                <td>${m.usuario_email || 'SISTEMA'}</td>
+                            </tr>
+                        `).join('')
+                        : '<tr><td colspan="5">Nenhuma movimentação registrada.</td></tr>'}
+                </tbody>
+            </table>
         `;
     }
 
-    // 2. RELATÓRIO DE LOGS / AUDITORIA
+    // 2. RELATÓRIO DE LOGS (Auditoria total, incluindo exclusões)
     async function gerarRelatorioLogs() {
-        if (!obraAtivaId) return;
         const target = document.getElementById('print-logs');
-        const { data: logs } = await supabaseClient.from('logs_auditoria').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
+        
+        // Busca os logs associados à obra ativa OU logs gerais de exclusões onde obra_id ficou nulo
+        let query = supabaseClient.from('logs_auditoria').select('*').order('criado_em', { ascending: false });
+        if (obraAtivaId) {
+            query = query.or(`obra_id.eq.${obraAtivaId},obra_id.is.null`);
+        }
+
+        const { data: logs } = await query;
 
         target.innerHTML = `
-            ${obterCabecalhoImpressao('LOGS DE ALTERAÇÕES & AUDITORIA DE SISTEMA')}
+            ${obterCabecalhoImpressao('RELATÓRIO DE AUDITORIA E LOGS DE ALTERAÇÕES')}
             <table>
                 <thead>
-                    <tr><th>Data / Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes do Lançamento</th></tr>
+                    <tr><th>Data / Hora</th><th>Usuário Responsável</th><th>Ação Executada</th><th>Detalhamento</th></tr>
                 </thead>
                 <tbody>
                     ${(logs && logs.length > 0)
                         ? logs.map(l => `
                             <tr>
                                 <td>${new Date(l.criado_em).toLocaleString('pt-BR')}</td>
-                                <td>${l.usuario_email}</td>
-                                <td><strong>${l.acao}</strong></td>
+                                <td><strong>${l.usuario_email || 'SISTEMA'}</strong></td>
+                                <td><span style="font-weight:bold; color:var(--primary);">${l.acao}</span></td>
                                 <td>${l.detalhe}</td>
                             </tr>
                         `).join('')
-                        : '<tr><td colspan="4">Nenhum registro de log encontrado para esta obra.</td></tr>'}
+                        : '<tr><td colspan="4">Nenhum log registrado até o momento.</td></tr>'}
                 </tbody>
             </table>
         `;
     }
 
-    // 3. RELATÓRIO RDO DA OBRA
+    // 3. RELATÓRIO DIÁRIO DE OBRA (RDO)
     async function gerarRelatorioObraRDO() {
         if (!obraAtivaId) return;
         const target = document.getElementById('print-obra');
-        const { data: rdos } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraAtivaId).order('data', { ascending: false });
+        const { data: listaRdos } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraAtivaId).order('data', { ascending: false });
 
-        if (!rdos || rdos.length === 0) {
-            target.innerHTML = `${obterCabecalhoImpressao('HISTÓRICO DE RELATÓRIOS DIÁRIOS DE OBRA')}<p>Nenhum RDO registrado para esta obra.</p>`;
+        let html = obterCabecalhoImpressao('HISTÓRICO COMPLETO DO DIÁRIO DE OBRA (RDO)');
+
+        if (!listaRdos || listaRdos.length === 0) {
+            target.innerHTML = html + '<p>Nenhum RDO cadastrado para esta obra.</p>';
             return;
         }
 
-        let html = obterCabecalhoImpressao('HISTÓRICO DE RELATÓRIOS DIÁRIOS DE OBRA (RDO)');
-
-        rdos.forEach(r => {
+        listaRdos.forEach(r => {
             const ef = r.efetivo || {};
-            const fotos = r.fotos || [];
+            const totalEfetivo = Object.values(ef).reduce((a, b) => Number(a) + Number(b), 0);
 
             html += `
-                <div style="border: 2px solid var(--border); padding: 15px; margin-bottom: 20px; border-radius: 8px; page-break-inside: avoid;">
-                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px;">
-                        <strong style="font-size: 1.1em; color: var(--primary);">📅 Data: ${r.data}</strong>
-                        <span>Responsável: <strong>${r.responsavel || 'N/I'}</strong> | Fase: <strong>${r.fase || 'N/I'}</strong></span>
+                <div style="border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 20px; page-break-inside: avoid;">
+                    <div style="display:flex; justify-content:space-between; border-bottom:1px solid #cbd5e1; padding-bottom:8px; margin-bottom:10px;">
+                        <h3 style="margin:0;">📅 Data: ${r.data.split('-').reverse().join('/')}</h3>
+                        <span><strong>Engenheiro:</strong> ${r.responsavel || 'N/I'} | <strong>Fase:</strong> ${r.fase || 'N/I'}</span>
                     </div>
 
-                    <div class="grid-3" style="font-size: 0.9em; margin-bottom: 10px;">
-                        <div><strong>Clima Manhã:</strong> ${r.clima_manha}</div>
-                        <div><strong>Clima Tarde:</strong> ${r.clima_tarde}</div>
-                        <div><strong>Condição:</strong> ${r.condicao_trabalho}</div>
+                    <p><strong>Clima:</strong> Manhã: ${r.clima_manha} | Tarde: ${r.clima_tarde} | <strong>Condição:</strong> ${r.condicao_trabalho}</p>
+                    
+                    <p><strong>Efetivo Diário Total:</strong> ${totalEfetivo} trabalhadores</p>
+                    <small>Pedreiros: ${ef.pedreiro||0} | Serventes: ${ef.servente||0} | Operadores: ${ef.operador||0} | Carpinteiros: ${ef.carpinteiro||0} | Serralheiros: ${ef.serralheiro||0} | Bombeiros: ${ef.bombeiro||0} | Terceirizados: ${ef.terceirizado||0} | Outros: ${ef.outros||0}</small>
+
+                    <div style="margin-top:10px;">
+                        <strong>Ocorrências:</strong>
+                        <p style="background:#f1f5f9; padding:8px; border-radius:4px; margin-top:4px;">${r.ocorrencias || 'Sem intercorrências registradas.'}</p>
                     </div>
 
-                    <strong>👷 Efetivo Presente:</strong>
-                    <div style="font-size: 0.85em; display:flex; gap:12px; flex-wrap:wrap; background: #f1f5f9; padding: 8px; border-radius: 4px; margin: 5px 0 10px 0;">
-                        <span>Pedreiros: <b>${ef.pedreiro || 0}</b></span>
-                        <span>Serventes: <b>${ef.servente || 0}</b></span>
-                        <span>Operadores: <b>${ef.operador || 0}</b></span>
-                        <span>Carpinteiros: <b>${ef.carpinteiro || 0}</b></span>
-                        <span>Serralheiros: <b>${ef.serralheiro || 0}</b></span>
-                        <span>Bombeiros: <b>${ef.bombeiro || 0}</b></span>
-                        <span>Terceirizados: <b>${ef.terceirizado || 0}</b></span>
-                        <span>Outros: <b>${ef.outros || 0}</b></span>
-                    </div>
-
-                    <div style="margin-bottom: 10px;">
-                        <strong>📝 Ocorrências / Observações:</strong>
-                        <p style="margin: 3px 0; font-size: 0.9em; white-space: pre-line;">${r.ocorrencias || 'Sem ocorrências.'}</p>
-                    </div>
-
-                    ${fotos.length > 0 ? `
-                        <strong>📷 Fotos Anexadas:</strong>
-                        <div class="foto-grid">
-                            ${fotos.map(url => `<div class="foto-card"><a href="${url}" target="_blank"><img src="${url}" alt="Foto RDO"></a></div>`).join('')}
+                    ${(r.fotos && r.fotos.length > 0) ? `
+                        <div style="margin-top:10px;">
+                            <strong>Registros Fotográficos:</strong>
+                            <div class="foto-grid">
+                                ${r.fotos.map(url => `<div class="foto-card"><img src="${url}" onclick="window.open('${url}','_blank')"></div>`).join('')}
+                            </div>
                         </div>
                     ` : ''}
+                    <div style="font-size:0.75em; color:#64748b; margin-top:8px; text-align:right;">Registrado por ${r.usuario_email}</div>
                 </div>
             `;
         });
@@ -731,148 +837,70 @@
         target.innerHTML = html;
     }
 
-    function imprimirAbaSeparada(idDivImprimir) {
-        const conteudo = document.getElementById(idDivImprimir).innerHTML;
-        const janelaImpressao = window.open('', '_blank');
-        janelaImpressao.document.write(`
+    function imprimirAbaSeparada(idDivArea) {
+        const conteudo = document.getElementById(idDivArea).innerHTML;
+        const janelaPrint = window.open('', '', 'width=900,height=700');
+        janelaPrint.document.write(`
             <html>
                 <head>
-                    <title>Impressão Relatório ASM</title>
+                    <title>Impressão ASM Engenharia</title>
                     <style>
                         body { font-family: sans-serif; padding: 20px; color: #1e293b; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 15px; }
                         th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 0.85em; }
                         th { background-color: #f1f5f9; }
-                        .relatorio-header-print { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+                        .relatorio-header-print { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
                         .relatorio-header-print img { height: 50px; }
-                        .badge-entrada { color: #166534; font-weight: bold; }
-                        .badge-saida { color: #991b1b; font-weight: bold; }
-                        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-                        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
-                        .foto-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 5px; }
-                        .foto-card { width: 120px; height: 90px; border: 1px solid #ccc; }
+                        .badge-entrada { background-color: #dcfce7; color: #166534; padding: 2px 6px; border-radius: 4px; font-size:0.8em; }
+                        .badge-saida { background-color: #fee2e2; color: #991b1b; padding: 2px 6px; border-radius: 4px; font-size:0.8em; }
+                        .foto-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+                        .foto-card { border: 1px solid #ccc; height: 90px; }
                         .foto-card img { width: 100%; height: 100%; object-fit: cover; }
                     </style>
                 </head>
                 <body>
                     ${conteudo}
+                    <script>
+                        window.onload = function() { window.print(); window.close(); }
+                    <\/script>
                 </body>
             </html>
         `);
-        janelaImpressao.document.close();
-        janelaImpressao.focus();
-        setTimeout(() => { janelaImpressao.print(); }, 500);
+        janelaPrint.document.close();
     }
 
-    // MODAL OBRA
-    function abrirModalObra(modo) {
-        document.getElementById('modal-obra-overlay').style.display = 'flex';
-        if (modo === 'criar') {
-            document.getElementById('modalObraTitulo').innerText = "🏗️ Cadastrar Obra";
-            document.getElementById('obraIdEdicao').value = "";
-            document.getElementById('modalObraNome').value = "";
-            document.getElementById('modalObraEndereco').value = "";
-            document.getElementById('modalObraCoordenadas').value = "";
-        } else {
-            const obra = listaObras.find(o => o.id === obraAtivaId);
-            if (!obra) return;
-            document.getElementById('modalObraTitulo').innerText = "✏️ Editar Obra";
-            document.getElementById('obraIdEdicao').value = obra.id;
-            document.getElementById('modalObraNome').value = obra.nome;
-            document.getElementById('modalObraEndereco').value = obra.endereco || "";
-            document.getElementById('modalObraCoordenadas').value = obra.coordenadas || "";
-        }
-    }
-
-    function fecharModalObra() { document.getElementById('modal-obra-overlay').style.display = 'none'; }
-
-    async function salvarObraModal() {
-        const id = document.getElementById('obraIdEdicao').value;
-        const nome = document.getElementById('modalObraNome').value.trim();
-        const endereco = document.getElementById('modalObraEndereco').value.trim();
-        const coordenadas = document.getElementById('modalObraCoordenadas').value.trim();
-
-        if (!nome) return alert("Informe o nome da obra.");
-
-        if (id) {
-            const { error } = await supabaseClient.from('obras').update({ nome, endereco, coordenadas }).eq('id', id);
-            if (error) return alert("Erro ao atualizar obra: " + error.message);
-            await registrarLog('OBRA_EDITADA', `Obra: ${nome}`);
-        } else {
-            const { data, error } = await supabaseClient.from('obras').insert([{ nome, endereco, coordenadas, status: 'ativa' }]).select();
-            if (error) return alert("Erro ao criar obra: " + error.message);
-            if (data && data[0]) obraAtivaId = data[0].id;
-            await registrarLog('OBRA_CRIADA', `Obra: ${nome}`);
-        }
-
-        fecharModalObra();
-        await carregarObras();
-    }
-
-    async function arquivarObraAtual() {
-        if (!obraAtivaId || !confirm("Deseja realmente arquivar esta obra?")) return;
-        const { error } = await supabaseClient.from('obras').update({ status: 'arquivada' }).eq('id', obraAtivaId);
-        if (error) return alert("Erro ao arquivar: " + error.message);
-        await registrarLog('OBRA_ARQUIVADA', `ID Obra: ${obraAtivaId}`);
-        obraAtivaId = null;
-        await carregarObras();
-    }
-
-    async function excluirObraAtiva() {
-        if (perfilUsuarioAtual?.role !== 'admin') return alert("Apenas Administradores podem excluir obras.");
-        if (!obraAtivaId || !confirm("ATENÇÃO: Deseja EXCLUIR DEFINITIVAMENTE esta obra e seus registros?")) return;
-        const { error } = await supabaseClient.from('obras').delete().eq('id', obraAtivaId);
-        if (error) return alert("Erro ao excluir: " + error.message);
-        obraAtivaId = null;
-        await carregarObras();
-    }
-
-    function atualizarTabelaArquivadas() {
-        const arquivadas = listaObras.filter(o => o.status === 'arquivada');
-        const tbody = document.getElementById('tabelaObrasArquivadas');
-        tbody.innerHTML = '';
-        if (arquivadas.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="2">Nenhuma obra arquivada.</td></tr>';
-            return;
-        }
-        arquivadas.forEach(o => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${o.nome}</td>
-                    <td><button class="btn-success" onclick="desarquivarObra('${o.id}')">🔄 Reativar Obra</button></td>
-                </tr>
-            `;
-        });
-    }
-
-    async function desarquivarObra(id) {
-        const { error } = await supabaseClient.from('obras').update({ status: 'ativa' }).eq('id', id);
-        if (error) return alert("Erro ao desarquivar: " + error.message);
-        obraAtivaId = id;
-        await carregarObras();
-    }
-
-    // GESTÃO DE USUÁRIOS
+    // MANUTENÇÃO DE USUÁRIOS
     async function carregarUsuarios() {
-        const { data } = await supabaseClient.from('perfis').select('*');
+        const { data: perfis, error } = await supabaseClient.from('perfis').select('*');
+        if (error) return alert("Erro ao carregar usuários: " + error.message);
+
         const tbody = document.getElementById('tabelaUsuariosCorpo');
         tbody.innerHTML = '';
-        (data || []).forEach(u => {
+
+        perfis.forEach(p => {
+            const ehSuperAdmin = p.email === EMAIL_SUPERADMIN;
             tbody.innerHTML += `
                 <tr>
-                    <td>${u.email}</td>
-                    <td><strong>${u.role}</strong></td>
-                    <td><small>${u.id}</small></td>
+                    <td><strong>${p.email}</strong> ${ehSuperAdmin ? '👑' : ''}</td>
+                    <td>${p.role === 'admin' ? '⭐ Administrador' : '👷 Operador'}</td>
+                    <td><small style="color:#64748b;">${p.id}</small></td>
                     <td style="text-align: center;">
-                        <button class="btn-danger" style="padding: 3px 8px; font-size: 0.8em;" onclick="excluirPerfilUsuario('${u.id}', '${u.email}')">Excluir</button>
+                        ${!ehSuperAdmin ? `
+                            <button class="btn-warning" style="padding:4px 8px; font-size:0.8em;" onclick="alterarRoleUsuario('${p.id}', '${p.role === 'admin' ? 'operador' : 'admin'}')">Alternar Perfil</button>
+                        ` : '<em>Inalterável</em>'}
                     </td>
                 </tr>
             `;
         });
     }
 
-    function abrirModalUsuario() { document.getElementById('modal-usuario-overlay').style.display = 'flex'; }
-    function fecharModalUsuario() { document.getElementById('modal-usuario-overlay').style.display = 'none'; }
+    function abrirModalUsuario() {
+        document.getElementById('modal-usuario-overlay').style.display = 'flex';
+    }
+
+    function fecharModalUsuario() {
+        document.getElementById('modal-usuario-overlay').style.display = 'none';
+    }
 
     async function cadastrarUsuario() {
         const email = document.getElementById('novoUserEmail').value.trim();
@@ -882,19 +910,21 @@
         if (!email || !password) return alert("Preencha e-mail e senha.");
 
         const { data, error } = await supabaseClient.auth.signUp({ email, password });
-        if (error) return alert("Erro ao criar usuário Auth: " + error.message);
+        if (error) return alert("Erro ao criar usuário na autenticação: " + error.message);
 
-        if (data.user) {
-            await supabaseClient.from('perfis').insert([{ id: data.user.id, email: email, role: role }]);
-            alert("Usuário cadastrado com sucesso!");
+        if (data?.user) {
+            await supabaseClient.from('perfis').upsert({ id: data.user.id, email: email, role: role });
+            await registrarLog('USUARIO_CRIADO', `Novo usuário criado: ${email} (${role})`);
+            alert("Usuário criado com sucesso!");
             fecharModalUsuario();
             carregarUsuarios();
         }
     }
 
-    async function excluirPerfilUsuario(id, email) {
-        if (!confirm(`Deseja remover o perfil de ${email}?`)) return;
-        await supabaseClient.from('perfis').delete().eq('id', id);
+    async function alterarRoleUsuario(id, novoRole) {
+        const { error } = await supabaseClient.from('perfis').update({ role: novoRole }).eq('id', id);
+        if (error) return alert("Erro ao alterar privilégio: " + error.message);
+        await registrarLog('USUARIO_PERFIL_ALTERADO', `Perfil do usuário ${id} alterado para ${novoRole}`);
         carregarUsuarios();
     }
 </script>

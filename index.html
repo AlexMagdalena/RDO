@@ -3,213 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema RDO Multi-Obras - ASM Engenharia Civil</title>
-    <!-- Supabase JS Client -->
+    <title>Painel RDO Multi-Obras - ASM Engenharia Civil</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
-        :root {
-            --primary: #1e3a8a;
-            --secondary: #0284c7;
-            --success: #15803d;
-            --warning: #b45309;
-            --danger: #b91c1c;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --border: #cbd5e1;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg);
-            margin: 0;
-            padding: 20px;
-            color: #1e293b;
-        }
-
-        .container {
-            max-width: 1050px;
-            margin: auto;
-            background: var(--card-bg);
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
-
-        .header-top-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 3px solid var(--secondary);
-            padding-bottom: 12px;
-            margin-bottom: 15px;
-        }
-
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .header-brand img.logo-img {
-            height: 55px;
-            width: auto;
-            object-fit: contain;
-        }
-
-        .header-obra {
-            background: #eff6ff;
-            border: 2px solid var(--secondary);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .header-obra-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-
-        .header-obra select {
-            font-size: 1.05em;
-            font-weight: bold;
-            padding: 8px;
-            min-width: 250px;
-        }
-
-        .detalhes-obra-box {
-            background: #ffffff;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 12px;
-            font-size: 0.9em;
-        }
-
-        .detalhes-obra-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
+        :root { --primary: #1e3a8a; --secondary: #0284c7; --success: #15803d; --warning: #b45309; --danger: #b91c1c; --bg: #f8fafc; --card-bg: #ffffff; --border: #cbd5e1; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--bg); margin: 0; padding: 20px; color: #1e293b; }
+        .container { max-width: 1050px; margin: auto; background: var(--card-bg); padding: 25px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .header-top-bar { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--secondary); padding-bottom: 12px; margin-bottom: 15px; }
+        .header-brand { display: flex; align-items: center; gap: 15px; }
+        .header-brand img.logo-img { height: 55px; width: auto; object-fit: contain; }
+        .header-obra { background: #eff6ff; border: 2px solid var(--secondary); padding: 15px; border-radius: 8px; margin-bottom: 20px; }
+        .header-obra-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+        .header-obra select { font-size: 1.05em; font-weight: bold; padding: 8px; min-width: 250px; }
+        .detalhes-obra-box { background: #ffffff; border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-size: 0.9em; }
+        .detalhes-obra-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 10px; }
         h1, h2, h3 { color: var(--primary); }
         h1 { margin: 0; font-size: 1.5em; }
         h2 { border-bottom: 2px solid var(--border); padding-bottom: 6px; margin-top: 25px; }
-
-        .menu-bar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 9px 15px;
-            background-color: var(--secondary);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.9em;
-            transition: opacity 0.2s;
-        }
-
+        .menu-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        button { padding: 9px 15px; background-color: var(--secondary); color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 0.9em; }
         button:hover { opacity: 0.9; }
         .btn-success { background-color: var(--success); }
         .btn-warning { background-color: var(--warning); }
         .btn-danger { background-color: var(--danger); }
         .btn-sub { background-color: #64748b; }
-
         .section { display: none; }
         .active { display: block; }
-
         .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
-
         .form-group { margin-bottom: 15px; }
         label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; }
-        input, select, textarea {
-            width: 100%;
-            padding: 9px;
-            box-sizing: border-box;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 0.95em;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            margin-bottom: 20px;
-        }
-
-        th, td {
-            border: 1px solid var(--border);
-            padding: 10px;
-            text-align: left;
-            font-size: 0.9em;
-        }
-
+        input, select, textarea { width: 100%; padding: 9px; box-sizing: border-box; border: 1px solid var(--border); border-radius: 6px; font-size: 0.95em; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; margin-bottom: 20px; }
+        th, td { border: 1px solid var(--border); padding: 10px; text-align: left; font-size: 0.9em; }
         th { background-color: #f1f5f9; }
-
-        .foto-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .foto-card {
-            position: relative;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            overflow: hidden;
-            background: #000;
-            height: 110px;
-        }
-
-        .foto-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        #login-overlay, #modal-obra-overlay, #modal-usuario-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 23, 42, 0.85);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-        }
-
-        .login-box {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            width: 420px;
-            max-width: 90%;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-        }
-
-        .relatorio-header-print {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid #000;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-
-        .relatorio-header-print img {
-            height: 65px;
-        }
-
+        .foto-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; margin-top: 10px; }
+        .foto-card { position: relative; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; background: #000; height: 110px; }
+        .foto-card img { width: 100%; height: 100%; object-fit: cover; }
+        #modal-obra-overlay, #modal-usuario-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.85); display: flex; justify-content: center; align-items: center; z-index: 9999; }
+        .login-box { background: white; padding: 30px; border-radius: 10px; width: 420px; max-width: 90%; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .relatorio-header-print { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
+        .relatorio-header-print img { height: 65px; }
         @media print {
             body { background: white; padding: 0; }
             .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
@@ -222,94 +55,21 @@
 </head>
 <body>
 
-<!-- TELA DE LOGIN -->
-<div id="login-overlay">
-    <div class="login-box" style="text-align: center;">
-        <img id="imgLogoLogin" style="max-width: 220px; margin-bottom: 15px;" alt="ASM Engenharia Civil">
-        <h2>🔐 Identificação RDO Supabase</h2>
-        <p style="font-size: 0.9em; color: #64748b;">Entre com seu e-mail e senha registrados.</p>
-        <div class="form-group" style="text-align: left;">
-            <label>E-mail</label>
-            <input type="email" id="loginEmail" placeholder="seuemail@asm.com.br">
-        </div>
-        <div class="form-group" style="text-align: left;">
-            <label>Senha</label>
-            <input type="password" id="loginSenha" placeholder="Sua senha">
-        </div>
-        <button class="btn-success" style="width: 100%;" onclick="fazerLogin()">Entrar no Sistema</button>
-    </div>
-</div>
-
-<!-- MODAL CADASTRAR/EDITAR OBRA -->
-<div id="modal-obra-overlay" style="display: none;">
-    <div class="login-box">
-        <h2 id="modalObraTitulo">🏗️ Cadastrar / Editar Obra</h2>
-        <input type="hidden" id="obraIdEdicao">
-        <div class="form-group">
-            <label>Nome da Obra *</label>
-            <input type="text" id="modalObraNome" placeholder="Ex: Obra Residencial Parque">
-        </div>
-        <div class="form-group">
-            <label>Endereço Completo</label>
-            <input type="text" id="modalObraEndereco" placeholder="Ex: Av. Principal, 500 - Centro">
-        </div>
-        <div class="form-group">
-            <label>Coordenadas GPS (Lat, Long)</label>
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="modalObraCoordenadas" placeholder="-15.7801, -47.9292">
-                <button type="button" class="btn-sub" onclick="capturarGpsObra()" title="Capturar Localização Atual">📍 GPS</button>
-            </div>
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button class="btn-success" style="flex: 1;" onclick="salvarObraModal()">Salvar Obra</button>
-            <button class="btn-danger" style="flex: 1;" onclick="fecharModalObra()">Cancelar</button>
-        </div>
-    </div>
-</div>
-
-<!-- MODAL CADASTRAR USUÁRIO -->
-<div id="modal-usuario-overlay" style="display: none;">
-    <div class="login-box">
-        <h2>👤 Novo Usuário</h2>
-        <div class="form-group">
-            <label>E-mail do Usuário *</label>
-            <input type="email" id="novoUserEmail" placeholder="novo.usuario@asm.com.br">
-        </div>
-        <div class="form-group">
-            <label>Senha Temporária (Padrão: 123456) *</label>
-            <input type="password" id="novoUserSenha" value="123456" placeholder="Mínimo 6 caracteres">
-        </div>
-        <div class="form-group">
-            <label>Nível de Acesso *</label>
-            <select id="novoUserRole">
-                <option value="operador">👷 Operador / Apontador (Somente Lançamentos)</option>
-                <option value="admin">⭐ Administrador (Acesso Total)</option>
-            </select>
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button class="btn-success" style="flex: 1;" onclick="cadastrarUsuario()">Cadastrar</button>
-            <button class="btn-danger" style="flex: 1;" onclick="fecharModalUsuario()">Cancelar</button>
-        </div>
-    </div>
-</div>
-
 <div class="container">
-    <!-- BARRA SUPERIOR DE LOGO E SESSÃO -->
     <div class="header-top-bar no-print">
         <div class="header-brand">
-            <img id="imgLogoHeader" class="logo-img" alt="ASM Engenharia Civil">
+            <img id="imgLogoHeader" class="logo-img" src="./logo_asm.png" alt="ASM Engenharia Civil">
             <div>
                 <h1 style="font-size: 1.3em;">Relatório Diário de Obra (RDO)</h1>
                 <small style="color: #64748b;">Gestão Cloud & Almoxarifado</small>
             </div>
         </div>
         <div style="font-size: 0.9em; display:flex; gap:12px; align-items:center;">
-            <span id="infoUsuarioLogado" style="color: var(--primary); font-weight: 600;">Carregando perfil...</span>
+            <span id="infoUsuarioLogado" style="color: var(--primary); font-weight: 600;">Validando acesso...</span>
             <button class="btn-danger" style="padding: 6px 12px; font-size: 0.85em;" onclick="sairSistema()">Sair 🚪</button>
         </div>
     </div>
     
-    <!-- SELETOR E DETALHES DA OBRA ATIVA -->
     <div class="header-obra no-print">
         <div class="header-obra-top">
             <div>
@@ -335,7 +95,6 @@
         </div>
     </div>
 
-    <!-- MENU DE NAVEGAÇÃO -->
     <div class="menu-bar no-print">
         <button onclick="mostrarSecao('sec-estoque')">📦 Almoxarifado</button>
         <button onclick="mostrarSecao('sec-registro');">📝 Novo RDO Diário</button>
@@ -393,9 +152,7 @@
         <div class="form-group"><textarea id="regOcorrencias" rows="3"></textarea></div>
 
         <h3>3. Fotos da Vistoria (Armazenadas no Supabase Storage)</h3>
-        <div class="form-group">
-            <input type="file" id="regFotosInput" accept="image/*" multiple>
-        </div>
+        <div class="form-group"><input type="file" id="regFotosInput" accept="image/*" multiple></div>
 
         <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; padding: 12px; margin-top: 15px;">💾 Salvar RDO no Banco Cloud</button>
     </div>
@@ -417,12 +174,7 @@
         </div>
         <table>
             <thead>
-                <tr>
-                    <th>E-mail</th>
-                    <th>Nível de Acesso</th>
-                    <th>ID Supabase</th>
-                    <th style="text-align: center;">Ações</th>
-                </tr>
+                <tr><th>E-mail</th><th>Nível de Acesso</th><th>ID Supabase</th><th style="text-align: center;">Ações</th></tr>
             </thead>
             <tbody id="tabelaUsuariosCorpo"></tbody>
         </table>
@@ -438,19 +190,56 @@
     </div>
 </div>
 
+<!-- MODAL CADASTRAR/EDITAR OBRA -->
+<div id="modal-obra-overlay" style="display: none;">
+    <div class="login-box">
+        <h2 id="modalObraTitulo">🏗️ Cadastrar / Editar Obra</h2>
+        <input type="hidden" id="obraIdEdicao">
+        <div class="form-group"><label>Nome da Obra *</label><input type="text" id="modalObraNome"></div>
+        <div class="form-group"><label>Endereço Completo</label><input type="text" id="modalObraEndereco"></div>
+        <div class="form-group">
+            <label>Coordenadas GPS (Lat, Long)</label>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="modalObraCoordenadas" placeholder="-15.7801, -47.9292">
+                <button type="button" class="btn-sub" onclick="capturarGpsObra()">📍 GPS</button>
+            </div>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn-success" style="flex: 1;" onclick="salvarObraModal()">Salvar</button>
+            <button class="btn-danger" style="flex: 1;" onclick="fecharModalObra()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CADASTRAR USUÁRIO -->
+<div id="modal-usuario-overlay" style="display: none;">
+    <div class="login-box">
+        <h2>👤 Novo Usuário</h2>
+        <div class="form-group"><label>E-mail *</label><input type="email" id="novoUserEmail"></div>
+        <div class="form-group"><label>Senha Temporária *</label><input type="password" id="novoUserSenha" value="123456"></div>
+        <div class="form-group">
+            <label>Nível de Acesso *</label>
+            <select id="novoUserRole">
+                <option value="operador">👷 Operador / Apontador</option>
+                <option value="admin">⭐ Administrador</option>
+            </select>
+        </div>
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button class="btn-success" style="flex: 1;" onclick="cadastrarUsuario()">Cadastrar</button>
+            <button class="btn-danger" style="flex: 1;" onclick="fecharModalUsuario()">Cancelar</button>
+        </div>
+    </div>
+</div>
+
 <script>
     const LOGO_URL = './logo_asm.png';
     const SUPABASE_URL = 'https://babsgbpzjjkqiblvvigh.supabase.co';
     const SUPABASE_ANON_KEY = "sb_publishable_hfqD7yvZteVjbpbvIt0RBg_JKa5m2k_";
+    const EMAIL_SUPERADMIN = 'admin@admin.com';
 
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        auth: {
-            persistSession: false,
-            autoRefreshToken: false
-        }
+        auth: { persistSession: true, autoRefreshToken: true }
     });
-
-    const EMAIL_SUPERADMIN = 'admin@admin.com';
 
     let obraAtivaId = null;
     let usuarioAtual = null;
@@ -458,101 +247,50 @@
     let listaObras = [];
 
     document.getElementById('regData').valueAsDate = new Date();
-    document.getElementById('imgLogoLogin').src = LOGO_URL;
-    document.getElementById('imgLogoHeader').src = LOGO_URL;
 
-    // VERIFICAÇÃO AUTOMÁTICA DE SESSÃO AO CARREGAR
+    // CHECAGEM RÍGIDA DE SESSÃO: REDIRECIONA PARA LOGIN SE NÃO TIVER TOKEN VÁLIDO
     document.addEventListener('DOMContentLoaded', async () => {
         const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
-            usuarioAtual = session.user;
-            document.getElementById('login-overlay').style.display = 'none';
-            await inicializarSistema();
-        } else {
-            document.getElementById('login-overlay').style.display = 'flex';
-        }
-    });
-
-    supabaseClient.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-            usuarioAtual = session.user;
-            document.getElementById('login-overlay').style.display = 'none';
-            await inicializarSistema();
-        } else if (event === 'SIGNED_OUT') {
-            document.getElementById('login-overlay').style.display = 'flex';
-        }
-    });
-
-    async function fazerLogin() {
-        const email = document.getElementById('loginEmail').value.trim();
-        const password = document.getElementById('loginSenha').value;
-
-        if (!email || !password) return alert("Por favor, preencha o e-mail e a senha.");
-
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) {
-            alert("Erro na autenticação: " + error.message);
+        
+        if (!session) {
+            window.location.href = 'login.html';
             return;
         }
 
-        usuarioAtual = data.user;
-
-        const { data: perfil } = await supabaseClient.from('perfis').select('senha_temporaria').eq('id', usuarioAtual.id).single();
-
-        if (perfil && perfil.senha_temporaria) {
-            const novaSenha = prompt("Sua senha é temporária (123456). Por razões de segurança, digite uma nova senha (mínimo 6 caracteres):");
-            
-            if (!novaSenha || novaSenha.length < 6) {
-                alert("A nova senha deve possuir ao menos 6 caracteres. O login não foi concluído.");
-                await supabaseClient.auth.signOut();
-                return;
-            }
-
-            const { error: updateError } = await supabaseClient.auth.updateUser({ password: novaSenha });
-            
-            if (updateError) {
-                alert("Erro ao redefinir sua senha: " + updateError.message);
-                await supabaseClient.auth.signOut();
-                return;
-            }
-
-            await supabaseClient.from('perfis').update({ senha_temporaria: false }).eq('id', usuarioAtual.id);
-            alert("Senha alterada com sucesso! Acesso liberado.");
-        }
-
-        document.getElementById('login-overlay').style.display = 'none';
+        usuarioAtual = session.user;
         await inicializarSistema();
-    }
+    });
 
     async function sairSistema() {
         await supabaseClient.auth.signOut();
-        location.reload();
+        window.location.href = 'login.html';
     }
 
     async function inicializarSistema() {
-        if (!usuarioAtual) return;
+        const { data: perfil, error } = await supabaseClient.from('perfis').select('*').eq('id', usuarioAtual.id).single();
+        
+        if (error || !perfil) {
+            alert("Acesso negado. Perfil não encontrado.");
+            await sairSistema();
+            return;
+        }
 
-        const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', usuarioAtual.id).single();
         perfilUsuarioAtual = perfil;
-
-        const isAdmin = perfil && perfil.role === 'admin';
+        const isAdmin = perfil.role === 'admin';
         const roleTxt = isAdmin ? '⭐ (Admin)' : '👷 (Operador)';
         document.getElementById('infoUsuarioLogado').innerHTML = `👤 ${usuarioAtual.email} <span style="font-size:0.85em; opacity:0.8;">${roleTxt}</span>`;
         
         const btnUsuarios = document.getElementById('btnMenuUsuarios');
-        if (btnUsuarios) {
-            btnUsuarios.style.display = isAdmin ? 'inline-block' : 'none';
-        }
+        if (btnUsuarios) btnUsuarios.style.display = isAdmin ? 'inline-block' : 'none';
 
         await carregarObras();
     }
 
     function mostrarSecao(idSecao) {
         if (idSecao === 'sec-usuarios' && perfilUsuarioAtual?.role !== 'admin') {
-            alert("Acesso restrito apenas para Administradores.");
+            alert("Acesso restrito a Administradores.");
             return;
         }
-
         document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
         document.getElementById(idSecao).classList.add('active');
     }
@@ -568,7 +306,6 @@
     function atualizarSeletorObras() {
         const select = document.getElementById('seletorObraGlobal');
         select.innerHTML = '';
-        
         const obrasAtivas = listaObras.filter(o => o.status === 'ativa');
         
         if (obrasAtivas.length === 0) {
@@ -621,11 +358,7 @@
         document.getElementById('lblObraCoordenadas').textContent = obra.coordenadas || 'Não informadas';
 
         const btnMapa = document.getElementById('btnVerMapa');
-        if (obra.coordenadas && obra.coordenadas.includes(',')) {
-            btnMapa.style.display = 'inline-block';
-        } else {
-            btnMapa.style.display = 'none';
-        }
+        btnMapa.style.display = (obra.coordenadas && obra.coordenadas.includes(',')) ? 'inline-block' : 'none';
 
         carregarEstoque();
     }
@@ -633,27 +366,19 @@
     function abrirNoGoogleMaps() {
         const obra = listaObras.find(o => o.id === obraAtivaId);
         if (obra && obra.coordenadas) {
-            const coords = obra.coordenadas.trim();
-            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coords)}`, '_blank');
+            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(obra.coordenadas.trim())}`, '_blank');
         }
     }
 
     function capturarGpsObra() {
-        if (!navigator.geolocation) {
-            alert("Seu navegador não suporta geolocalização.");
-            return;
-        }
-
+        if (!navigator.geolocation) return alert("Navegador sem suporte a geolocalização.");
         document.getElementById('modalObraCoordenadas').value = "Obtendo GPS...";
-
         navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude.toFixed(6);
-                const lng = position.coords.longitude.toFixed(6);
-                document.getElementById('modalObraCoordenadas').value = `${lat}, ${lng}`;
+            (pos) => {
+                document.getElementById('modalObraCoordenadas').value = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
             },
-            (error) => {
-                alert("Erro ao obter geolocalização: " + error.message);
+            (err) => {
+                alert("Erro GPS: " + err.message);
                 document.getElementById('modalObraCoordenadas').value = "";
             },
             { enableHighAccuracy: true, timeout: 10000 }
@@ -671,16 +396,14 @@
     }
 
     async function reporEstoque() {
-        if (!obraAtivaId) return alert("Nenhuma obra ativa selecionada.");
+        if (!obraAtivaId) return alert("Selecione uma obra ativa.");
         const insumo = document.getElementById('novoMatNome').value.trim().toUpperCase();
         const quantidade = parseFloat(document.getElementById('novoMatQtd').value);
 
         if (!insumo || isNaN(quantidade)) return alert("Preencha o insumo e a quantidade.");
 
         const { data } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).eq('insumo', insumo).single();
-
-        let novaQtd = quantidade;
-        if (data) novaQtd += parseFloat(data.quantidade);
+        let novaQtd = data ? (parseFloat(data.quantidade) + quantidade) : quantidade;
 
         const { error } = await supabaseClient.from('estoque').upsert({
             obra_id: obraAtivaId,
@@ -692,19 +415,19 @@
             document.getElementById('novoMatNome').value = '';
             document.getElementById('novoMatQtd').value = '';
             carregarEstoque();
+        } else {
+            alert("Erro ao atualizar estoque: " + error.message);
         }
     }
 
     async function salvarRDO() {
-        if (!obraAtivaId) return alert("Nenhuma obra selecionada para registrar RDO.");
+        if (!obraAtivaId) return alert("Selecione uma obra ativa.");
         const files = document.getElementById('regFotosInput').files;
         const fotoUrls = [];
 
         for (let file of files) {
             const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-            const filePath = `${obraAtivaId}/${fileName}`;
-
+            const filePath = `${obraAtivaId}/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
             const { error: uploadError } = await supabaseClient.storage.from('rdo-fotos').upload(filePath, file);
 
             if (!uploadError) {
@@ -741,13 +464,9 @@
         const target = document.getElementById('conteudoRelatorio');
         const obra = listaObras.find(o => o.id === obraAtivaId);
         
-        target.innerHTML = '';
-
-        let relatorioHeaderHTML = `
+        target.innerHTML = `
             <div class="relatorio-header-print">
-                <div>
-                    <img src="${LOGO_URL}" alt="ASM Engenharia Civil">
-                </div>
+                <div><img src="${LOGO_URL}" alt="ASM Engenharia Civil"></div>
                 <div style="text-align: right;">
                     <h2 style="margin: 0; font-size: 1.3em;">RELATÓRIO DIÁRIO DE OBRA (RDO)</h2>
                     <p style="margin: 2px 0 0 0; font-weight: bold;">Obra: ${obra ? obra.nome : ''}</p>
@@ -755,8 +474,6 @@
                 </div>
             </div>
         `;
-
-        target.innerHTML += relatorioHeaderHTML;
 
         (data || []).forEach(rdo => {
             let fotosHtml = rdo.fotos ? rdo.fotos.map(url => `<div class="foto-card"><img src="${url}"></div>`).join('') : '';
@@ -791,9 +508,7 @@
         }
     }
 
-    function fecharModalObra() {
-        document.getElementById('modal-obra-overlay').style.display = 'none';
-    }
+    function fecharModalObra() { document.getElementById('modal-obra-overlay').style.display = 'none'; }
 
     async function salvarObraModal() {
         const id = document.getElementById('obraIdEdicao').value;
@@ -805,10 +520,10 @@
 
         if (id) {
             const { error } = await supabaseClient.from('obras').update({ nome, endereco, coordenadas }).eq('id', id);
-            if (error) alert("Erro ao atualizar: " + error.message);
+            if (error) alert("Erro ao atualizar obra: " + error.message);
         } else {
             const { error } = await supabaseClient.from('obras').insert([{ nome, endereco, coordenadas, status: 'ativa' }]);
-            if (error) alert("Erro ao criar: " + error.message);
+            if (error) alert("Erro ao criar obra: " + error.message);
         }
 
         fecharModalObra();
@@ -832,7 +547,7 @@
 
     async function excluirObraAtiva() {
         if (!obraAtivaId) return;
-        if (confirm("ATENÇÃO: Deseja realmente excluir a obra e todos os seus dados? Esta ação não pode ser desfeita.")) {
+        if (confirm("ATENÇÃO: Deseja excluir esta obra permanentemente?")) {
             await supabaseClient.from('obras').delete().eq('id', obraAtivaId);
             obraAtivaId = null;
             await carregarObras();
@@ -853,20 +568,14 @@
             tbody.innerHTML += `
                 <tr>
                     <td>${obra.nome}</td>
-                    <td>
-                        <button class="btn-success" onclick="desalquivarObra('${obra.id}')">Desarquivar 📂</button>
-                    </td>
+                    <td><button class="btn-success" onclick="desalquivarObra('${obra.id}')">Desarquivar 📂</button></td>
                 </tr>
             `;
         });
     }
 
-    /* GESTÃO DE USUÁRIOS CORRIGIDA */
-    function abrirModalUsuario() {
-        document.getElementById('modal-usuario-overlay').style.display = 'flex';
-    }
-
-    function fecharModalUsuario() {
+    function abrirModalUsuario() { document.getElementById('modal-usuario-overlay').style.display = 'flex'; }
+    function fecharModalUsuario() { 
         document.getElementById('modal-usuario-overlay').style.display = 'none';
         document.getElementById('novoUserEmail').value = '';
     }
@@ -876,47 +585,31 @@
         const password = document.getElementById('novoUserSenha').value;
         const role = document.getElementById('novoUserRole').value;
 
-        if (!email || !password) return alert("Preencha o e-mail e a senha.");
+        if (!email || !password) return alert("Preencha e-mail e senha.");
 
         try {
-            // 1. Chamada HTTP direta na API de Auth do Supabase sem deslogar o Admin
             const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'apikey': SUPABASE_ANON_KEY
-                },
+                headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
                 body: JSON.stringify({ email, password })
             });
 
             const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.msg || data.error_description || data.message || "Erro ao registrar usuário.");
-            }
+            if (!response.ok) throw new Error(data.msg || data.error_description || data.message || "Erro no cadastro.");
 
             const newUserId = data.id || data.user?.id;
-
             if (newUserId) {
-                // 2. Usamos .upsert() em vez de .insert()
-                // Se a Trigger do Supabase já criou o perfil, o .upsert() apenas ATUALIZA a role e a senha_temporaria
                 const { error: profileError } = await supabaseClient.from('perfis').upsert([{
-                    id: newUserId,
-                    email: email,
-                    role: role,
-                    senha_temporaria: true
+                    id: newUserId, email: email, role: role, senha_temporaria: true
                 }], { onConflict: 'id' });
 
                 if (profileError) {
-                    alert("Usuário criado no Auth, mas houve erro ao atualizar o perfil: " + profileError.message);
+                    alert("Erro ao configurar perfil: " + profileError.message);
                 } else {
-                    alert("Usuário criado e configurado com sucesso!");
+                    alert("Usuário criado com sucesso!");
                     fecharModalUsuario();
                     carregarUsuarios();
                 }
-            } else {
-                alert("Usuário cadastrado com sucesso! Verifique a confirmação de e-mail se estiver ativada.");
-                fecharModalUsuario();
             }
         } catch (err) {
             alert("Erro ao cadastrar usuário: " + err.message);
@@ -946,18 +639,11 @@
     }
 
     async function deletarUsuario(id, email) {
-        if (email === EMAIL_SUPERADMIN) {
-            return alert("O Super Admin não pode ser removido.");
-        }
-
-        if (confirm(`Deseja remover o perfil do usuário ${email}?`)) {
+        if (email === EMAIL_SUPERADMIN) return alert("SuperAdmin não pode ser removido.");
+        if (confirm(`Deseja remover o usuário ${email}?`)) {
             const { error } = await supabaseClient.from('perfis').delete().eq('id', id);
-            if (error) {
-                alert("Erro ao remover usuário: " + error.message);
-            } else {
-                alert("Perfil removido com sucesso!");
-                carregarUsuarios();
-            }
+            if (error) alert("Erro ao deletar: " + error.message);
+            else { alert("Usuário removido!"); carregarUsuarios(); }
         }
     }
 </script>

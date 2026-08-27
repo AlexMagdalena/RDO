@@ -3,972 +3,657 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema RDO Multi-Obras - ASM Engenharia Civil</title>
-    <!-- Supabase JS Client -->
+    <title>Sistema de Gestão de Obras & RDO</title>
+    <!-- Supabase JS Client v2 -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
-            --primary: #1e3a8a;
-            --secondary: #0284c7;
-            --success: #15803d;
-            --warning: #b45309;
-            --danger: #b91c1c;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
             --bg: #f8fafc;
             --card-bg: #ffffff;
-            --border: #cbd5e1;
+            --text: #0f172a;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --danger: #ef4444;
+            --danger-hover: #dc2626;
+            --success: #10b981;
+            --success-hover: #059669;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: var(--bg);
-            margin: 0;
-            padding: 20px;
-            color: #1e293b;
-        }
-
-        .container {
-            max-width: 1050px;
-            margin: auto;
-            background: var(--card-bg);
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        }
-
-        .header-top-bar {
+            color: var(--text);
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 3px solid var(--secondary);
-            padding-bottom: 12px;
-            margin-bottom: 15px;
-        }
-
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .header-brand img.logo-img {
-            height: 55px;
-            width: auto;
-            object-fit: contain;
-        }
-
-        .header-obra {
-            background: #eff6ff;
-            border: 2px solid var(--secondary);
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-        }
-
-        .header-obra-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-
-        .header-obra select {
-            font-size: 1.05em;
-            font-weight: bold;
-            padding: 8px;
-            min-width: 250px;
-        }
-
-        .detalhes-obra-box {
-            background: #ffffff;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 12px;
-            font-size: 0.9em;
-        }
-
-        .detalhes-obra-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-
-        h1, h2, h3 { color: var(--primary); }
-        h1 { margin: 0; font-size: 1.5em; }
-        h2 { border-bottom: 2px solid var(--border); padding-bottom: 6px; margin-top: 25px; }
-
-        .menu-bar {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-
-        button {
-            padding: 9px 15px;
-            background-color: var(--secondary);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.9em;
-            transition: opacity 0.2s;
-        }
-
-        button:hover { opacity: 0.9; }
-        .btn-success { background-color: var(--success); }
-        .btn-warning { background-color: var(--warning); }
-        .btn-danger { background-color: var(--danger); }
-        .btn-sub { background-color: #64748b; }
-
-        .section { display: none; }
-        .active { display: block; }
-
-        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
-
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: 600; margin-bottom: 5px; font-size: 0.9em; }
-        input, select, textarea {
-            width: 100%;
-            padding: 9px;
-            box-sizing: border-box;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            font-size: 0.95em;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-            margin-bottom: 20px;
-        }
-
-        th, td {
-            border: 1px solid var(--border);
-            padding: 10px;
-            text-align: left;
-            font-size: 0.9em;
-        }
-
-        th { background-color: #f1f5f9; }
-
-        .foto-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .foto-card {
-            position: relative;
-            border: 1px solid var(--border);
-            border-radius: 6px;
+            height: 100vh;
             overflow: hidden;
-            background: #000;
-            height: 110px;
         }
 
-        .foto-card img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        #login-overlay, #modal-obra-overlay, #modal-usuario-overlay {
+        /* TELA DE LOGIN */
+        #login-screen {
             position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(15, 23, 42, 0.85);
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: var(--bg);
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             z-index: 9999;
         }
 
-        .login-box {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            width: 420px;
-            max-width: 90%;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+        .login-card {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 400px;
         }
 
-        .relatorio-header-print {
+        .login-card h2 {
+            margin-bottom: 1.5rem;
+            text-align: center;
+            color: var(--primary);
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--primary);
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.75rem 1.25rem;
+            width: 100%;
+        }
+
+        .btn-primary:hover { background-color: var(--primary-hover); }
+
+        .btn-success {
+            background-color: var(--success);
+            color: white;
+            padding: 0.5rem 1rem;
+        }
+
+        .btn-success:hover { background-color: var(--success-hover); }
+
+        .btn-danger {
+            background-color: var(--danger);
+            color: white;
+            padding: 0.5rem 1rem;
+        }
+
+        .btn-danger:hover { background-color: var(--danger-hover); }
+
+        /* PAINEL PRINCIPAL */
+        #app-screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--card-bg);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 2rem;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 2px solid #000;
-            padding-bottom: 15px;
-            margin-bottom: 20px;
         }
 
-        .relatorio-header-print img {
-            height: 65px;
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
         }
 
-        @media print {
-            body { background: white; padding: 0; }
-            .container { box-shadow: none; border: none; padding: 0; max-width: 100%; }
-            body * { visibility: hidden; }
-            #conteudoRelatorio, #conteudoRelatorio * { visibility: visible; }
-            #conteudoRelatorio { position: absolute; left: 0; top: 0; width: 100%; }
-            .no-print { display: none !important; }
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        sidebar {
+            width: 320px;
+            background-color: var(--card-bg);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            overflow-y: auto;
+        }
+
+        main {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        /* TABELAS */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        th, td {
+            padding: 0.75rem 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: var(--bg);
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        /* MODAIS */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0, 0, 0, 0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background: var(--card-bg);
+            border-radius: 8px;
+            padding: 2rem;
+            width: 100%;
+            max-width: 500px;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn-secondary {
+            background-color: var(--border);
+            color: var(--text);
+            padding: 0.5rem 1rem;
         }
     </style>
 </head>
 <body>
 
-<!-- TELA DE LOGIN -->
-<div id="login-overlay">
-    <div class="login-box" style="text-align: center;">
-        <img id="imgLogoLogin" style="max-width: 220px; margin-bottom: 15px;" alt="ASM Engenharia Civil">
-        <h2>🔐 Identificação RDO Supabase</h2>
-        <p style="font-size: 0.9em; color: #64748b;">Entre com seu e-mail e senha registrados.</p>
-        <div class="form-group" style="text-align: left;">
-            <label>E-mail</label>
-            <input type="email" id="loginEmail" placeholder="seuemail@asm.com.br">
-        </div>
-        <div class="form-group" style="text-align: left;">
-            <label>Senha</label>
-            <input type="password" id="loginSenha" placeholder="Sua senha">
-        </div>
-        <button class="btn-success" style="width: 100%;" onclick="fazerLogin()">Entrar no Sistema</button>
-    </div>
-</div>
-
-<!-- MODAL CADASTRAR/EDITAR OBRA -->
-<div id="modal-obra-overlay" style="display: none;">
-    <div class="login-box">
-        <h2 id="modalObraTitulo">🏗️ Cadastrar / Editar Obra</h2>
-        <input type="hidden" id="obraIdEdicao">
-        <div class="form-group">
-            <label>Nome da Obra *</label>
-            <input type="text" id="modalObraNome" placeholder="Ex: Obra Residencial Parque">
-        </div>
-        <div class="form-group">
-            <label>Endereço Completo</label>
-            <input type="text" id="modalObraEndereco" placeholder="Ex: Av. Principal, 500 - Centro">
-        </div>
-        <div class="form-group">
-            <label>Coordenadas GPS (Lat, Long)</label>
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="modalObraCoordenadas" placeholder="-15.7801, -47.9292">
-                <button type="button" class="btn-sub" onclick="capturarGpsObra()" title="Capturar Localização Atual">📍 GPS</button>
-            </div>
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button class="btn-success" style="flex: 1;" onclick="salvarObraModal()">Salvar Obra</button>
-            <button class="btn-danger" style="flex: 1;" onclick="fecharModalObra()">Cancelar</button>
+    <!-- 1. TELA DE LOGIN -->
+    <div id="login-screen">
+        <div class="login-card">
+            <h2>Acesso ao Sistema</h2>
+            <form id="formLogin" onsubmit="realizarLogin(event)">
+                <div class="form-group">
+                    <label for="loginEmail">E-mail</label>
+                    <input type="email" id="loginEmail" required placeholder="seu@email.com">
+                </div>
+                <div class="form-group">
+                    <label for="loginSenha">Senha</label>
+                    <input type="password" id="loginSenha" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn-primary">Entrar</button>
+            </form>
         </div>
     </div>
-</div>
 
-<!-- MODAL CADASTRAR USUÁRIO -->
-<div id="modal-usuario-overlay" style="display: none;">
-    <div class="login-box">
-        <h2>👤 Novo Usuário</h2>
-        <div class="form-group">
-            <label>E-mail do Usuário *</label>
-            <input type="email" id="novoUserEmail" placeholder="novo.usuario@asm.com.br">
-        </div>
-        <div class="form-group">
-            <label>Senha Temporária (Padrão: 123456) *</label>
-            <input type="password" id="novoUserSenha" value="123456" placeholder="Mínimo 6 caracteres">
-        </div>
-        <div class="form-group">
-            <label>Nível de Acesso *</label>
-            <select id="novoUserRole">
-                <option value="operador">👷 Operador / Apontador (Somente Lançamentos)</option>
-                <option value="admin">⭐ Administrador (Acesso Total)</option>
-            </select>
-        </div>
-        <div style="display: flex; gap: 10px; margin-top: 20px;">
-            <button class="btn-success" style="flex: 1;" onclick="cadastrarUsuario()">Cadastrar</button>
-            <button class="btn-danger" style="flex: 1;" onclick="fecharModalUsuario()">Cancelar</button>
-        </div>
-    </div>
-</div>
+    <!-- 2. PAINEL PRINCIPAL -->
+    <div id="app-screen">
+        <header>
+            <h1>Gestão de Obras & RDO</h1>
+            <div class="user-info">
+                <span id="userDisplayEmail" style="font-weight: 600;"></span>
+                <button class="btn-danger" style="padding: 0.4rem 0.8rem; font-size: 0.875rem;" onclick="realizarLogout()">Sair</button>
+            </div>
+        </header>
 
-<div class="container">
-    <!-- BARRA SUPERIOR DE LOGO E SESSÃO -->
-    <div class="header-top-bar no-print">
-        <div class="header-brand">
-            <img id="imgLogoHeader" class="logo-img" alt="ASM Engenharia Civil">
-            <div>
-                <h1 style="font-size: 1.3em;">Relatório Diário de Obra (RDO)</h1>
-                <small style="color: #64748b;">Gestão Cloud & Almoxarifado</small>
-            </div>
-        </div>
-        <div style="font-size: 0.9em; display:flex; gap:12px; align-items:center;">
-            <span id="infoUsuarioLogado" style="color: var(--primary); font-weight: 600;">Carregando perfil...</span>
-            <button class="btn-danger" style="padding: 6px 12px; font-size: 0.85em;" onclick="sairSistema()">Sair 🚪</button>
-        </div>
-    </div>
-    
-    <!-- SELETOR E DETALHES DA OBRA ATIVA -->
-    <div class="header-obra no-print">
-        <div class="header-obra-top">
-            <div>
-                <label style="font-size: 1.1em; color: var(--primary);">🏗️ Obra Ativa em Execução:</label>
-                <select id="seletorObraGlobal" onchange="trocarObraAtiva(this.value)"></select>
-            </div>
-            <div style="display:flex; gap: 8px;">
-                <button class="btn-success" onclick="abrirModalObra('criar')">+ Nova Obra</button>
-                <button class="btn-sub" onclick="abrirModalObra('editar')">✏️ Editar Obra</button>
-                <button class="btn-warning" onclick="arquivarObraAtual()">📂 Arquivar Obra</button>
-                <button class="btn-danger" onclick="excluirObraAtiva()">🗑️ Excluir Obra</button>
-            </div>
-        </div>
-
-        <div class="detalhes-obra-box">
-            <div class="detalhes-obra-grid">
-                <div><strong>📍 Endereço:</strong> <span id="lblObraEndereco">Não informado</span></div>
+        <div class="container">
+            <!-- BARRA LATERAL: SELEÇÃO E AÇÕES DE OBRAS -->
+            <sidebar>
                 <div>
-                    <strong>🌐 Coordenadas:</strong> <span id="lblObraCoordenadas">Não informadas</span>
-                    <button id="btnVerMapa" class="btn-sub" style="padding: 2px 6px; font-size: 0.8em; margin-left: 5px; display: none;" onclick="abrirNoGoogleMaps()">🗺️ Ver Mapa</button>
+                    <h3>Obra Ativa</h3>
+                    <div class="form-group" style="margin-top: 0.5rem;">
+                        <select id="selectObraAtiva" onchange="selecionarObraAtiva(this.value)">
+                            <!-- Opções carregadas via JS -->
+                        </select>
+                    </div>
                 </div>
+
+                <div id="secaoAcoesObra">
+                    <button class="btn-primary" onclick="abrirModalObra()" style="margin-bottom: 0.5rem;">+ Nova Obra</button>
+                    <button class="btn-secondary" style="width: 100%; margin-bottom: 0.5rem;" onclick="arquivarObraAtual()">Arquivar Obra Ativa</button>
+                    <button class="btn-danger" style="width: 100%; font-size: 0.85em;" onclick="excluirObraAtiva()">Excluir Obra Ativa</button>
+                </div>
+
+                <div id="secaoAdminUsuarios" style="border-top: 1px solid var(--border); padding-top: 1.5rem; display: none;">
+                    <h3>Administração</h3>
+                    <button class="btn-primary" style="margin-top: 0.5rem; background-color: #475569;" onclick="abrirModalUsuario()">+ Cadastrar Usuário</button>
+                </div>
+            </sidebar>
+
+            <!-- CONTEÚDO PRINCIPAL -->
+            <main>
+                <!-- CARD DE OBRAS ARQUIVADAS -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Obras Arquivadas</h2>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Nome da Obra</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaObrasArquivadas">
+                            <!-- Preenchido dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- CARD DE USUÁRIOS DO SISTEMA (visível para admins) -->
+                <div class="card" id="cardGerenciamentoUsuarios" style="display: none;">
+                    <div class="card-header">
+                        <h2>Usuários Cadastrados</h2>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>E-mail</th>
+                               <th>Função</th>
+                                <th>UUID</th>
+                                <th style="text-align: center;">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabelaUsuariosCorpo">
+                            <!-- Preenchido dinamicamente -->
+                        </tbody>
+                    </table>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- MODAL: NOVA OBRA -->
+    <div class="modal-overlay" id="modal-obra-overlay">
+        <div class="modal">
+            <h2>Cadastrar Nova Obra</h2>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label for="nomeObraInput">Nome da Obra</label>
+                <input type="text" id="nomeObraInput" placeholder="Ex: Residencial Parque das Flores">
+            </div>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="fecharModalObra()">Cancelar</button>
+                <button class="btn-primary" style="width: auto;" onclick="salvarNovaObra()">Salvar</button>
             </div>
         </div>
     </div>
 
-    <!-- MENU DE NAVEGAÇÃO -->
-    <div class="menu-bar no-print">
-        <button onclick="mostrarSecao('sec-estoque')">📦 Almoxarifado</button>
-        <button onclick="mostrarSecao('sec-registro');">📝 Novo RDO Diário</button>
-        <button onclick="mostrarSecao('sec-relatorio'); gerarRelatorio();">📊 Relatórios</button>
-        <button id="btnMenuUsuarios" class="btn-sub" style="display: none;" onclick="mostrarSecao('sec-usuarios'); carregarUsuarios();">👥 Usuários</button>
-        <button class="btn-sub" onclick="mostrarSecao('sec-arquivadas')">📁 Obras Arquivadas</button>
-    </div>
-
-    <!-- SEÇÃO 1: ALMOXARIFADO -->
-    <div id="sec-estoque" class="section active">
-        <h2>Almoxarifado Exclusivo - <span class="nomeObraTxt"></span></h2>
-        <div class="form-group no-print grid-3" style="align-items: flex-end;">
-            <div>
-                <label>Nome do Insumo</label>
-                <input type="text" id="novoMatNome" placeholder="Ex: Cimento CP II">
+    <!-- MODAL: NOVO USUÁRIO -->
+    <div class="modal-overlay" id="modal-usuario-overlay">
+        <div class="modal">
+            <h2>Cadastrar Novo Usuário</h2>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label for="novoUserEmail">E-mail</label>
+                <input type="email" id="novoUserEmail" placeholder="usuario@empresa.com">
             </div>
-            <div>
-                <label>Quantidade Adicionada</label>
-                <input type="number" id="novoMatQtd" placeholder="Ex: 100">
-            </div>
-            <button class="btn-success" onclick="reporEstoque()">+ Receber Insumo</button>
-        </div>
-        <table>
-            <thead><tr><th>Material / Insumo</th><th>Saldo em Estoque</th></tr></thead>
-            <tbody id="tabelaEstoqueCorpo"></tbody>
-        </table>
-    </div>
-
-    <!-- SEÇÃO 2: REGISTRO DE RDO -->
-    <div id="sec-registro" class="section no-print">
-        <h2>Lançamento do Diário de Obra - <span class="nomeObraTxt"></span></h2>
-        <div class="grid-3">
-            <div class="form-group"><label>Data da Vistoria</label><input type="date" id="regData"></div>
-            <div class="form-group"><label>Engenheiro Responsável</label><input type="text" id="regResponsavel"></div>
-            <div class="form-group"><label>Fase / Frente de Serviço</label><input type="text" id="regFase"></div>
-        </div>
-
-        <h3>1. Condições Climáticas</h3>
-        <div class="grid-3">
             <div class="form-group">
-                <label>Clima Manhã</label>
-                <select id="regClimaManha"><option value="Ensolarado">Ensolarado</option><option value="Nublado">Nublado</option><option value="Chuvoso">Chuvoso</option></select>
+                <label for="novoUserSenha">Senha Temporária</label>
+                <input type="password" id="novoUserSenha" value="123456">
             </div>
             <div class="form-group">
-                <label>Clima Tarde</label>
-                <select id="regClimaTarde"><option value="Ensolarado">Ensolarado</option><option value="Nublado">Nublado</option><option value="Chuvoso">Chuvoso</option></select>
+                <label for="novoUserRole">Nível de Acesso</label>
+                <select id="novoUserRole">
+                    <option value="operador">Operador (Leitura/Escrita básica)</option>
+                    <option value="admin">Administrador (Acesso total)</option>
+                </select>
             </div>
-            <div class="form-group">
-                <label>Impacto</label>
-                <select id="regCondicaoTrabalho"><option value="Trabalho Normal">Trabalho Normal</option><option value="Paralisado por Chuva">Paralisado por Chuva</option></select>
+            <div class="modal-actions">
+                <button class="btn-secondary" onclick="fecharModalUsuario()">Cancelar</button>
+                <button class="btn-primary" style="width: auto;" onclick="cadastrarUsuario()">Criar Usuário</button>
             </div>
         </div>
-
-        <h3>2. Ocorrências / Observações</h3>
-        <div class="form-group"><textarea id="regOcorrencias" rows="3"></textarea></div>
-
-        <h3>3. Fotos da Vistoria (Armazenadas no Supabase Storage)</h3>
-        <div class="form-group">
-            <input type="file" id="regFotosInput" accept="image/*" multiple>
-        </div>
-
-        <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; padding: 12px; margin-top: 15px;">💾 Salvar RDO no Banco Cloud</button>
     </div>
 
-    <!-- SEÇÃO 3: RELATÓRIOS -->
-    <div id="sec-relatorio" class="section">
-        <div style="display: flex; justify-content: space-between; align-items: center;" class="no-print">
-            <h2>Relatórios - <span class="nomeObraTxt"></span></h2>
-            <button class="btn-warning" onclick="window.print()">🖨️ Imprimir Relatório</button>
-        </div>
-        <div id="conteudoRelatorio"></div>
-    </div>
+    <!-- SCRIPT DE LÓGICA E INTEGRAÇÃO -->
+    <script>
+        // CONFIGURAÇÃO DO SUPABASE
+        const SUPABASE_URL = "HTTPS://SUA-URL-AQUI.SUPABASE.CO"; // Substitua pela URL do seu projeto
+        const SUPABASE_ANON_KEY = "SUA-CHAVE-ANON-AQUI";        // Substitua pela Chave Anon pública
+        const EMAIL_SUPERADMIN = "admin@empresa.com";            // E-mail master do sistema
 
-    <!-- SEÇÃO USUÁRIOS -->
-    <div id="sec-usuarios" class="section no-print">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h2>Gerenciamento de Usuários e Níveis de Acesso</h2>
-            <button class="btn-success" onclick="abrirModalUsuario()">+ Novo Usuário</button>
-        </div>
-        <table>
-            <thead>
-                <tr>
-                    <th>E-mail</th>
-                    <th>Nível de Acesso</th>
-                    <th>ID Supabase</th>
-                    <th style="text-align: center;">Ações</th>
-                </tr>
-            </thead>
-            <tbody id="tabelaUsuariosCorpo"></tbody>
-        </table>
-    </div>
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    <!-- SEÇÃO 4: ARQUIVADAS -->
-    <div id="sec-arquivadas" class="section">
-        <h2>Obras Arquivadas</h2>
-        <table>
-            <thead><tr><th>Nome da Obra</th><th>Ações</th></tr></thead>
-            <tbody id="tabelaObrasArquivadas"></tbody>
-        </table>
-    </div>
-</div>
+        // ESTADO GLOBAL DA APLICAÇÃO
+        let usuarioAtual = null;
+        let perfilAtual = null;
+        let listaObras = [];
+        let obraAtivaId = null;
 
-<script>
-    const LOGO_URL = './logo_asm.png';
-    const SUPABASE_URL = 'https://babsgbpzjjkqiblvvigh.supabase.co';
-    const SUPABASE_ANON_KEY = "sb_publishable_hfqD7yvZteVjbpbvIt0RBg_JKa5m2k_";
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-    // INSIRA AQUI O SEU E-MAIL DE ADMINISTRADOR PRINCIPAL SUPABASE
-    const EMAIL_SUPERADMIN = 'seu-email-admin@exemplo.com';
-
-    let obraAtivaId = null;
-    let usuarioAtual = null;
-    let perfilUsuarioAtual = null;
-    let listaObras = [];
-
-    document.getElementById('regData').valueAsDate = new Date();
-    document.getElementById('imgLogoLogin').src = LOGO_URL;
-    document.getElementById('imgLogoHeader').src = LOGO_URL;
-
-    // VERIFICAÇÃO AUTOMÁTICA DE SESSÃO AO CARREGAR / ATUALIZAR (F5)
-    document.addEventListener('DOMContentLoaded', async () => {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
-            usuarioAtual = session.user;
-            document.getElementById('login-overlay').style.display = 'none';
-            await inicializarSistema();
-        } else {
-            document.getElementById('login-overlay').style.display = 'flex';
-        }
-    });
-
-    supabaseClient.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-            usuarioAtual = session.user;
-            document.getElementById('login-overlay').style.display = 'none';
-            await inicializarSistema();
-        } else if (event === 'SIGNED_OUT') {
-            document.getElementById('login-overlay').style.display = 'flex';
-        }
-    });
-
-    async function fazerLogin() {
-        const email = document.getElementById('loginEmail').value.trim();
-        const password = document.getElementById('loginSenha').value;
-
-        if (!email || !password) return alert("Por favor, preencha o e-mail e a senha.");
-
-        const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) {
-            alert("Erro na autenticação: " + error.message);
-            return;
-        }
-
-        usuarioAtual = data.user;
-
-        const { data: perfil } = await supabaseClient.from('perfis').select('senha_temporaria').eq('id', usuarioAtual.id).single();
-
-        if (perfil && perfil.senha_temporaria) {
-            const novaSenha = prompt("Sua senha é temporária (123456). Por razões de segurança, digite uma nova senha (mínimo 6 caracteres):");
-            
-            if (!novaSenha || novaSenha.length < 6) {
-                alert("A nova senha deve possuir ao menos 6 caracteres. O login não foi concluído.");
-                await supabaseClient.auth.signOut();
-                return;
+        // INICIALIZAÇÃO E CHECAGEM DE SESSÃO
+        window.addEventListener('DOMContentLoaded', async () => {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                await inicializarAplicacao(session.user);
+            } else {
+                mostrarTelaLogin();
             }
-
-            const { error: updateError } = await supabaseClient.auth.updateUser({ password: novaSenha });
-            
-            if (updateError) {
-                alert("Erro ao redefinir sua senha: " + updateError.message);
-                await supabaseClient.auth.signOut();
-                return;
-            }
-
-            await supabaseClient.from('perfis').update({ senha_temporaria: false }).eq('id', usuarioAtual.id);
-            alert("Senha alterada com sucesso! Acesso liberado.");
-        }
-
-        document.getElementById('login-overlay').style.display = 'none';
-        await inicializarSistema();
-    }
-
-    async function sairSistema() {
-        await supabaseClient.auth.signOut();
-        location.reload();
-    }
-
-    async function inicializarSistema() {
-        if (!usuarioAtual) return;
-
-        const { data: perfil } = await supabaseClient.from('perfis').select('*').eq('id', usuarioAtual.id).single();
-        perfilUsuarioAtual = perfil;
-
-        const isAdmin = perfil && perfil.role === 'admin';
-        const roleTxt = isAdmin ? '⭐ (Admin)' : '👷 (Operador)';
-        document.getElementById('infoUsuarioLogado').innerHTML = `👤 ${usuarioAtual.email} <span style="font-size:0.85em; opacity:0.8;">${roleTxt}</span>`;
-        
-        const btnUsuarios = document.getElementById('btnMenuUsuarios');
-        if (btnUsuarios) {
-            btnUsuarios.style.display = isAdmin ? 'inline-block' : 'none';
-        }
-
-        await carregarObras();
-    }
-
-    function mostrarSecao(idSecao) {
-        if (idSecao === 'sec-usuarios' && perfilUsuarioAtual?.role !== 'admin') {
-            alert("Acesso restrito apenas para Administradores.");
-            return;
-        }
-
-        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
-        document.getElementById(idSecao).classList.add('active');
-    }
-
-    async function carregarObras() {
-        const { data, error } = await supabaseClient.from('obras').select('*');
-        if (error) return alert("Erro ao carregar obras: " + error.message);
-        
-        listaObras = data || [];
-        atualizarSeletorObras();
-    }
-
-    function atualizarSeletorObras() {
-        const select = document.getElementById('seletorObraGlobal');
-        select.innerHTML = '';
-        
-        const obrasAtivas = listaObras.filter(o => o.status === 'ativa');
-        
-        if (obrasAtivas.length === 0) {
-            obraAtivaId = null;
-            limparDadosObraExibicao();
-            select.innerHTML = '<option value="">Nenhuma obra cadastrada</option>';
-            atualizarTabelaArquivadas();
-            return;
-        }
-
-        obrasAtivas.forEach(obra => {
-            const opt = document.createElement('option');
-            opt.value = obra.id;
-            opt.textContent = obra.nome;
-            select.appendChild(opt);
         });
 
-        if (!obraAtivaId || !obrasAtivas.find(o => o.id === obraAtivaId)) {
-            obraAtivaId = obrasAtivas[0].id;
-        }
-        
-        select.value = obraAtivaId;
-        carregarDadosObraAtiva();
-        atualizarTabelaArquivadas();
-    }
+        async function realizarLogin(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginSenha').value;
 
-    function limparDadosObraExibicao() {
-        document.querySelectorAll('.nomeObraTxt').forEach(el => el.textContent = 'Nenhuma Obra');
-        document.getElementById('lblObraEndereco').textContent = 'N/A';
-        document.getElementById('lblObraCoordenadas').textContent = 'N/A';
-        document.getElementById('btnVerMapa').style.display = 'none';
-        document.getElementById('tabelaEstoqueCorpo').innerHTML = '';
-    }
-
-    function trocarObraAtiva(id) {
-        if (!id) return;
-        obraAtivaId = id;
-        carregarDadosObraAtiva();
-    }
-
-    async function carregarDadosObraAtiva() {
-        const obra = listaObras.find(o => o.id === obraAtivaId);
-        if (!obra) {
-            limparDadosObraExibicao();
-            return;
-        }
-
-        document.querySelectorAll('.nomeObraTxt').forEach(el => el.textContent = obra.nome);
-        document.getElementById('lblObraEndereco').textContent = obra.endereco || 'Não informado';
-        document.getElementById('lblObraCoordenadas').textContent = obra.coordenadas || 'Não informadas';
-
-        const btnMapa = document.getElementById('btnVerMapa');
-        if (obra.coordenadas && obra.coordenadas.includes(',')) {
-            btnMapa.style.display = 'inline-block';
-        } else {
-            btnMapa.style.display = 'none';
-        }
-
-        carregarEstoque();
-    }
-
-    function abrirNoGoogleMaps() {
-        const obra = listaObras.find(o => o.id === obraAtivaId);
-        if (obra && obra.coordenadas) {
-            const coords = obra.coordenadas.trim();
-            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(coords)}`, '_blank');
-        }
-    }
-
-    function capturarGpsObra() {
-        if (!navigator.geolocation) {
-            alert("Seu navegador não suporta geolocalização.");
-            return;
-        }
-
-        document.getElementById('modalObraCoordenadas').value = "Obtendo GPS...";
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude.toFixed(6);
-                const lng = position.coords.longitude.toFixed(6);
-                document.getElementById('modalObraCoordenadas').value = `${lat}, ${lng}`;
-            },
-            (error) => {
-                alert("Erro ao obter geolocalização: " + error.message);
-                document.getElementById('modalObraCoordenadas').value = "";
-            },
-            { enableHighAccuracy: true, timeout: 10000 }
-        );
-    }
-
-    async function carregarEstoque() {
-        if (!obraAtivaId) return;
-        const { data } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId);
-        const tbody = document.getElementById('tabelaEstoqueCorpo');
-        tbody.innerHTML = '';
-        (data || []).forEach(item => {
-            tbody.innerHTML += `<tr><td>${item.insumo}</td><td>${item.quantidade}</td></tr>`;
-        });
-    }
-
-    async function reporEstoque() {
-        if (!obraAtivaId) return alert("Nenhuma obra ativa selecionada.");
-        const insumo = document.getElementById('novoMatNome').value.trim().toUpperCase();
-        const quantidade = parseFloat(document.getElementById('novoMatQtd').value);
-
-        if (!insumo || isNaN(quantidade)) return alert("Preencha o insumo e a quantidade.");
-
-        const { data } = await supabaseClient.from('estoque').select('*').eq('obra_id', obraAtivaId).eq('insumo', insumo).single();
-
-        let novaQtd = quantidade;
-        if (data) novaQtd += parseFloat(data.quantidade);
-
-        const { error } = await supabaseClient.from('estoque').upsert({
-            obra_id: obraAtivaId,
-            insumo: insumo,
-            quantidade: novaQtd
-        }, { onConflict: 'obra_id, insumo' });
-
-        if (!error) {
-            document.getElementById('novoMatNome').value = '';
-            document.getElementById('novoMatQtd').value = '';
-            carregarEstoque();
-        }
-    }
-
-    async function salvarRDO() {
-        if (!obraAtivaId) return alert("Nenhuma obra selecionada para registrar RDO.");
-        const files = document.getElementById('regFotosInput').files;
-        const fotoUrls = [];
-
-        for (let file of files) {
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-            const filePath = `${obraAtivaId}/${fileName}`;
-
-            const { error: uploadError } = await supabaseClient.storage.from('rdo-fotos').upload(filePath, file);
-
-            if (!uploadError) {
-                const { data } = supabaseClient.storage.from('rdo-fotos').getPublicUrl(filePath);
-                fotoUrls.push(data.publicUrl);
-            }
-        }
-
-        const rdoPayload = {
-            obra_id: obraAtivaId,
-            data: document.getElementById('regData').value,
-            responsavel: document.getElementById('regResponsavel').value,
-            fase: document.getElementById('regFase').value,
-            clima_manha: document.getElementById('regClimaManha').value,
-            clima_tarde: document.getElementById('regClimaTarde').value,
-            condicao_trabalho: document.getElementById('regCondicaoTrabalho').value,
-            ocorrencias: document.getElementById('regOcorrencias').value,
-            fotos: fotoUrls
-        };
-
-        const { error } = await supabaseClient.from('rdos').insert([rdoPayload]);
-        if (error) {
-            alert("Erro ao salvar RDO: " + error.message);
-        } else {
-            alert("RDO registrado com sucesso!");
-            document.getElementById('regOcorrencias').value = '';
-            document.getElementById('regFotosInput').value = '';
-        }
-    }
-
-    async function gerarRelatorio() {
-        if (!obraAtivaId) return;
-        const { data } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraAtivaId).order('data', { ascending: false });
-        const target = document.getElementById('conteudoRelatorio');
-        const obra = listaObras.find(o => o.id === obraAtivaId);
-        
-        target.innerHTML = '';
-
-        let relatorioHeaderHTML = `
-            <div class="relatorio-header-print">
-                <div>
-                    <img src="${LOGO_URL}" alt="ASM Engenharia Civil">
-                </div>
-                <div style="text-align: right;">
-                    <h2 style="margin: 0; font-size: 1.3em;">RELATÓRIO DIÁRIO DE OBRA (RDO)</h2>
-                    <p style="margin: 2px 0 0 0; font-weight: bold;">Obra: ${obra ? obra.nome : ''}</p>
-                    <small style="color: #475569;">${obra ? (obra.endereco || '') : ''} ${obra && obra.coordenadas ? '| GPS: ' + obra.coordenadas : ''}</small>
-                </div>
-            </div>
-        `;
-
-        target.innerHTML += relatorioHeaderHTML;
-
-        (data || []).forEach(rdo => {
-            let fotosHtml = rdo.fotos ? rdo.fotos.map(url => `<div class="foto-card"><img src="${url}"></div>`).join('') : '';
-            target.innerHTML += `
-                <div style="border: 1px solid #cbd5e1; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid;">
-                    <h3 style="margin-top:0;">Data: ${rdo.data} - Responsável: ${rdo.responsavel}</h3>
-                    <p><strong>Fase:</strong> ${rdo.fase || 'N/I'}</p>
-                    <p><strong>Clima:</strong> Manhã: ${rdo.clima_manha} | Tarde: ${rdo.clima_tarde}</p>
-                    <p><strong>Impacto:</strong> ${rdo.condicao_trabalho || 'Trabalho Normal'}</p>
-                    <p><strong>Observações:</strong> ${rdo.ocorrencias || 'Nenhuma'}</p>
-                    <div class="foto-grid">${fotosHtml}</div>
-                </div>
-            `;
-        });
-    }
-
-    function abrirModalObra(modo) {
-        document.getElementById('modal-obra-overlay').style.display = 'flex';
-        if (modo === 'editar') {
-            const obra = listaObras.find(o => o.id === obraAtivaId);
-            if (obra) {
-                document.getElementById('obraIdEdicao').value = obra.id;
-                document.getElementById('modalObraNome').value = obra.nome;
-                document.getElementById('modalObraEndereco').value = obra.endereco || '';
-                document.getElementById('modalObraCoordenadas').value = obra.coordenadas || '';
-            }
-        } else {
-            document.getElementById('obraIdEdicao').value = '';
-            document.getElementById('modalObraNome').value = '';
-            document.getElementById('modalObraEndereco').value = '';
-            document.getElementById('modalObraCoordenadas').value = '';
-        }
-    }
-
-    function fecharModalObra() {
-        document.getElementById('modal-obra-overlay').style.display = 'none';
-    }
-
-    async function salvarObraModal() {
-        const id = document.getElementById('obraIdEdicao').value;
-        const nome = document.getElementById('modalObraNome').value.trim();
-        const endereco = document.getElementById('modalObraEndereco').value.trim();
-        const coordenadas = document.getElementById('modalObraCoordenadas').value.trim();
-
-        if (!nome) return alert("Informe o nome da obra.");
-
-        const payload = { nome, endereco, coordenadas, status: 'ativa' };
-
-        if (id) {
-            await supabaseClient.from('obras').update(payload).eq('id', id);
-        } else {
-            await supabaseClient.from('obras').insert([payload]);
-        }
-
-        fecharModalObra();
-        await carregarObras();
-    }
-
-    async function arquivarObraAtual() {
-        if (!obraAtivaId) return alert("Nenhuma obra ativa selecionada.");
-        if (confirm("Deseja arquivar esta obra?")) {
-            await supabaseClient.from('obras').update({ status: 'arquivada' }).eq('id', obraAtivaId);
-            obraAtivaId = null;
-            await carregarObras();
-        }
-    }
-
-    async function excluirObraAtiva() {
-        if (!obraAtivaId) return alert("Nenhuma obra selecionada.");
-        if (confirm("ATENÇÃO: Deseja excluir permanentemente esta obra e todos os registros associados?")) {
-            const obraDeletar = obraAtivaId;
-            
-            await supabaseClient.from('rdos').delete().eq('obra_id', obraDeletar);
-            await supabaseClient.from('estoque').delete().eq('obra_id', obraDeletar);
-            
-            const { error } = await supabaseClient.from('obras').delete().eq('id', obraDeletar);
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
 
             if (error) {
-                alert("Erro ao excluir obra: " + error.message);
+                alert("Falha na autenticação: " + error.message);
                 return;
             }
 
+            await inicializarAplicacao(data.user);
+        }
+
+        async function realizarLogout() {
+            await supabaseClient.auth.signOut();
+            usuarioAtual = null;
+            perfilAtual = null;
             obraAtivaId = null;
-            alert("Obra excluída com sucesso.");
+            mostrarTelaLogin();
+        }
+
+        function mostrarTelaLogin() {
+            document.getElementById('login-screen').style.display = 'flex';
+            document.getElementById('app-screen').style.display = 'none';
+        }
+
+        async function inicializarAplicacao(user) {
+            usuarioAtual = user;
+            document.getElementById('userDisplayEmail').innerText = user.email;
+
+            // Carrega perfil do usuário logado
+            const { data: perfil, error } = await supabaseClient
+                .from('perfis')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (error && error.code !== 'PGRST116') {
+                console.error("Erro ao carregar perfil:", error.message);
+            }
+
+            perfilAtual = perfil || { role: 'operador' };
+
+            // Ajusta visibilidade de recursos administrativos
+            const isAdmin = perfilAtual.role === 'admin' || user.email === EMAIL_SUPERADMIN;
+            document.getElementById('secaoAdminUsuarios').style.display = isAdmin ? 'block' : 'none';
+            document.getElementById('cardGerenciamentoUsuarios').style.display = isAdmin ? 'block' : 'none';
+
+            document.getElementById('login-screen').style.display = 'none';
+            document.getElementById('app-screen').style.display = 'flex';
+
+            await carregarObras();
+
+            if (isAdmin) {
+                await carregarUsuarios();
+            }
+        }
+
+        // LÓGICA DE GERENCIAMENTO DE OBRAS
+        async function carregarObras() {
+            const { data, error } = await supabaseClient.from('obras').select('*').order('created_at', { ascending: false });
+
+            if (error) return alert("Erro ao carregar obras: " + error.message);
+
+            listaObras = data || [];
+            atualizarSelectObrasAtivas();
+            atualizarTabelaArquivadas();
+        }
+
+        function atualizarSelectObrasAtivas() {
+            const select = document.getElementById('selectObraAtiva');
+            select.innerHTML = '';
+
+            const obrasAtivas = listaObras.filter(o => o.status === 'ativa');
+
+            if (obrasAtivas.length === 0) {
+                select.innerHTML = '<option value="">Nenhuma obra ativa</option>';
+                obraAtivaId = null;
+                return;
+            }
+
+            obrasAtivas.forEach(obra => {
+                const opt = document.createElement('option');
+                opt.value = obra.id;
+                opt.textContent = obra.nome;
+                select.appendChild(opt);
+            });
+
+            // Mantém a obra selecionada anteriormente ou seleciona a primeira
+            if (!obraAtivaId || !obrasAtivas.some(o => o.id === obraAtivaId)) {
+                obraAtivaId = obrasAtivas[0].id;
+            }
+            select.value = obraAtivaId;
+        }
+
+        function selecionarObraAtiva(id) {
+            obraAtivaId = id;
+        }
+
+        function abrirModalObra() {
+            document.getElementById('modal-obra-overlay').style.display = 'flex';
+            document.getElementById('nomeObraInput').value = '';
+        }
+
+        function fecharModalObra() {
+            document.getElementById('modal-obra-overlay').style.display = 'none';
+        }
+
+        async function salvarNovaObra() {
+            const nome = document.getElementById('nomeObraInput').value.trim();
+            if (!nome) return alert("Digite o nome da obra.");
+
+            const { data, error } = await supabaseClient
+                .from('obras')
+                .insert([{ nome, status: 'ativa', criado_por: usuarioAtual.id }])
+                .select();
+
+            if (error) return alert("Erro ao criar obra: " + error.message);
+
+            if (data && data.length > 0) {
+                obraAtivaId = data[0].id;
+            }
+
+            fecharModalObra();
             await carregarObras();
         }
-    }
 
-    function atualizarTabelaArquivadas() {
-        const tbody = document.getElementById('tabelaObrasArquivadas');
-        tbody.innerHTML = '';
-        listaObras.filter(o => o.status === 'arquivada').forEach(o => {
-            tbody.innerHTML += `
-                <tr>
-                    <td>${o.nome}</td>
-                    <td><button onclick="reativarObra('${o.id}')">Reativar</button></td>
-                </tr>
-            `;
-        });
-    }
+        async function arquivarObraAtual() {
+            if (!obraAtivaId) return alert("Nenhuma obra ativa selecionada.");
+            if (!confirm("Deseja realmente arquivar esta obra? Ela será movida para a lista de arquivadas.")) return;
 
-    async function reativarObra(id) {
-        await supabaseClient.from('obras').update({ status: 'ativa' }).eq('id', id);
-        carregarObras();
-    }
+            const { error } = await supabaseClient.from('obras').update({ status: 'arquivada' }).eq('id', obraAtivaId);
+            if (error) return alert("Erro ao arquivar obra: " + error.message);
 
-    function abrirModalUsuario() {
-        document.getElementById('modal-usuario-overlay').style.display = 'flex';
-    }
-
-    function fecharModalUsuario() {
-        document.getElementById('modal-usuario-overlay').style.display = 'none';
-        document.getElementById('novoUserEmail').value = '';
-        document.getElementById('novoUserSenha').value = '123456';
-    }
-
-    async function cadastrarUsuario() {
-        const email = document.getElementById('novoUserEmail').value.trim().toLowerCase();
-        const password = document.getElementById('novoUserSenha').value;
-        const role = document.getElementById('novoUserRole').value;
-
-        if (!email || !password) return alert("Informe o e-mail e a senha.");
-        if (password.length < 6) return alert("A senha precisa ter pelo menos 6 caracteres.");
-
-        const sessionRes = await supabaseClient.auth.getSession();
-        const sessaoAdmin = sessionRes.data ? sessionRes.data.session : null;
-
-        const { data, error } = await supabaseClient.auth.signUp({
-            email: email,
-            password: password,
-            options: { data: { role: role } }
-        });
-
-        if (error) {
-            alert("Erro ao cadastrar usuário: " + error.message);
-            return;
+            obraAtivaId = null;
+            await carregarObras();
         }
 
-        if (data.user) {
-            await supabaseClient.from('perfis').upsert([{
-                id: data.user.id,
-                email: email,
-                role: role,
-                senha_temporaria: true
-            }], { onConflict: 'id' });
+        async function desarquivarObra(id) {
+            const { error } = await supabaseClient.from('obras').update({ status: 'ativa' }).eq('id', id);
+            if (error) return alert("Erro ao desarquivar obra: " + error.message);
+
+            obraAtivaId = id;
+            await carregarObras();
         }
 
-        if (sessaoAdmin) {
-            await supabaseClient.auth.setSession({
-                access_token: sessaoAdmin.access_token,
-                refresh_token: sessaoAdmin.refresh_token
-            });
+        async function excluirObraAtiva() {
+            if (!obraAtivaId) return alert("Nenhuma obra ativa selecionada.");
+            if (!confirm("ATENÇÃO: A exclusão é permanente! Todos os RDOs e registros de estoque desta obra serão perdidos. Deseja continuar?")) return;
+
+            const { error } = await supabaseClient.from('obras').delete().eq('id', obraAtivaId);
+            if (error) return alert("Erro ao excluir obra: " + error.message);
+
+            obraAtivaId = null;
+            await carregarObras();
         }
 
-        alert(`Usuário ${email} cadastrado com sucesso como ${role.toUpperCase()}!`);
-        fecharModalUsuario();
-        carregarUsuarios();
-    }
+        function atualizarTabelaArquivadas() {
+            const tbody = document.getElementById('tabelaObrasArquivadas');
+            tbody.innerHTML = '';
 
-    // CARREGA USUÁRIOS OCULTANDO O SUPERADMIN
-    async function carregarUsuarios() {
-        if (perfilUsuarioAtual?.role !== 'admin') return;
+            const obrasArquivadas = listaObras.filter(o => o.status === 'arquivada');
 
-        const { data, error } = await supabaseClient.from('perfis').select('*');
-        if (error) return alert("Erro ao carregar lista de usuários: " + error.message);
+            if (obrasArquivadas.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="2" style="text-align: center; color: #64748b;">Nenhuma obra arquivada.</td></tr>';
+                return;
+            }
 
-        const tbody = document.getElementById('tabelaUsuariosCorpo');
-        tbody.innerHTML = '';
-
-        (data || [])
-            .filter(u => u.email !== EMAIL_SUPERADMIN)
-            .forEach(u => {
-                const roleBadge = u.role === 'admin' ? '⭐ Admin' : '👷 Operador';
+            obrasArquivadas.forEach(obra => {
                 tbody.innerHTML += `
                     <tr>
-                        <td>${u.email}</td>
-                        <td>${roleBadge}</td>
-                        <td><small style="color:#64748b;">${u.id}</small></td>
-                        <td style="text-align: center;">
-                            <button class="btn-warning" style="padding: 4px 8px; font-size: 0.8em;" onclick="resetarSenhaUsuario('${u.id}', '${u.email}')">🔑 Resetar Senha</button>
-                            <button class="btn-danger" style="padding: 4px 8px; font-size: 0.8em;" onclick="excluirUsuario('${u.id}', '${u.email}')">🗑️ Excluir</button>
+                        <td>${obra.nome}</td>
+                        <td>
+                            <button class="btn-success" style="padding: 4px 8px; font-size: 0.85em;" onclick="desarquivarObra('${obra.id}')">Desarquivar 📂</button>
                         </td>
                     </tr>
                 `;
             });
-    }
-
-    async function resetarSenhaUsuario(userId, email) {
-        if (!confirm(`Deseja solicitar a troca de senha para o usuário ${email}?`)) return;
-
-        const { error } = await supabaseClient.from('perfis').update({ senha_temporaria: true }).eq('id', userId);
-
-        if (error) {
-            alert("Erro ao solicitar redefinição: " + error.message);
-        } else {
-            alert(`O usuário ${email} deverá definir uma nova senha pessoal no próximo acesso.`);
-        }
-    }
-
-    // PROTEÇÃO CONTRA EXCLUSÃO DO SUPERADMIN
-    async function excluirUsuario(userId, email) {
-        if (email === EMAIL_SUPERADMIN) {
-            alert("Ação negada: Este usuário é o administrador principal e não pode ser excluído.");
-            return;
         }
 
-        if (!confirm(`ATENÇÃO: Deseja remover permanentemente o usuário ${email}?`)) return;
-
-        const { error } = await supabaseClient.rpc('deletar_usuario_completo', { user_id: userId });
-
-        if (error) {
-            alert("Erro ao remover usuário do Supabase: " + error.message);
-        } else {
-            alert("Usuário excluído com sucesso!");
-            carregarUsuarios();
+        // LÓGICA DE GERENCIAMENTO DE USUÁRIOS
+        function abrirModalUsuario() {
+            document.getElementById('modal-usuario-overlay').style.display = 'flex';
+            document.getElementById('novoUserEmail').value = '';
+            document.getElementById('novoUserSenha').value = '123456';
         }
-    }
-</script>
+
+        function fecharModalUsuario() {
+            document.getElementById('modal-usuario-overlay').style.display = 'none';
+        }
+
+        async function cadastrarUsuario() {
+            const email = document.getElementById('novoUserEmail').value.trim();
+            const password = document.getElementById('novoUserSenha').value;
+            const role = document.getElementById('novoUserRole').value;
+
+            if (!email || !password) return alert("Preencha o e-mail e a senha temporária.");
+
+            // Cadastra o usuário no Supabase Auth
+            const { data, error } = await supabaseClient.auth.signUp({ email, password });
+
+            if (error) return alert("Erro ao cadastrar usuário no Auth: " + error.message);
+
+            if (data.user) {
+                // Insere o perfil na tabela 'perfis'
+                const { error: profileError } = await supabaseClient.from('perfis').insert([{
+                    id: data.user.id,
+                    email: email,
+                    role: role,
+                    senha_temporaria: true
+                }]);
+
+                if (profileError) {
+                    alert("Usuário criado, mas houve erro ao salvar o perfil: " + profileError.message);
+                } else {
+                    alert("Usuário cadastrado com sucesso!");
+                    fecharModalUsuario();
+                    await carregarUsuarios();
+                }
+            }
+        }
+
+        async function carregarUsuarios() {
+            const { data, error } = await supabaseClient.from('perfis').select('*');
+            if (error) return alert("Erro ao carregar usuários: " + error.message);
+
+            const tbody = document.getElementById('tabelaUsuariosCorpo');
+            tbody.innerHTML = '';
+
+            (data || []).forEach(u => {
+                const isSuperAdmin = u.email === EMAIL_SUPERADMIN;
+                const roleBadge = u.role === 'admin' ? '⭐ Administrador' : '👷 Operador';
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${u.email} ${isSuperAdmin ? '<b>(Principal)</b>' : ''}</td>
+                        <td>${roleBadge}</td>
+                        <td style="font-family: monospace; font-size: 0.85em;">${u.id}</td>
+                        <td style="text-align: center;">
+                            ${!isSuperAdmin ? `<button class="btn-danger" style="padding: 4px 8px; font-size: 0.8em;" onclick="excluirUsuario('${u.id}')">Excluir</button>` : '<small style="color: #64748b;">Protegido</small>'}
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function excluirUsuario(userId) {
+            if (!confirm("Deseja realmente remover a permissão de acesso deste usuário?")) return;
+
+            const { error } = await supabaseClient.from('perfis').delete().eq('id', userId);
+            if (error) return alert("Erro ao remover usuário: " + error.message);
+
+            alert("Perfil do usuário removido do sistema com sucesso.");
+            await carregarUsuarios();
+        }
+    </script>
 </body>
 </html>

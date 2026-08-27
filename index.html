@@ -186,7 +186,7 @@
         <button type="button" onclick="salvarRDO()" class="btn-success" style="width: 100%; padding: 12px; margin-top: 15px;">💾 Salvar RDO no Banco Cloud</button>
     </div>
 
-    <!-- SEÇÃO 3: RELATÓRIOS (COM SUB-ABAS E IMPRESSÃO SEPARADA) -->
+    <!-- SEÇÃO 3: RELATÓRIOS -->
     <div id="sec-relatorio" class="section">
         <div class="sub-menu-bar no-print">
             <button id="tab-rel-almoxarifado" class="btn-tab" onclick="carregarAbaRelatorio('rel-almoxarifado')">📦 Relatório do Almoxarifado</button>
@@ -500,7 +500,17 @@
 
         document.getElementById('novoMatNome').value = '';
         document.getElementById('novoMatQtd').value = '';
-        carregarEstoque();
+        
+        // Atualiza o estoque na tela e recarrega dados atualizados dos relatórios/logs
+        await carregarEstoque();
+        
+        // Se a aba de relatórios já estiver aberta/visível, atualiza dinamicamente
+        const abaAlmoxVisivel = document.getElementById('rel-almoxarifado')?.classList.contains('active');
+        const abaLogsVisivel = document.getElementById('rel-logs')?.classList.contains('active');
+        
+        if (abaAlmoxVisivel) await gerarRelatorioAlmoxarifado();
+        if (abaLogsVisivel) await gerarRelatorioLogs();
+
         alert("Lançamento de almoxarifado salvo com sucesso!");
     }
 
@@ -612,29 +622,20 @@
                     <table>
                         <thead><tr><th>Data/Hora</th><th>Insumo</th><th>Qtd</th><th>Usuário</th></tr></thead>
                         <tbody>
-                            ${(entradas.length > 0) ? entradas.map(m => `
-                                <tr>
-                                    <td><small>${new Date(m.criado_em).toLocaleString('pt-BR')}</small></td>
-                                    <td><strong>${m.insumo}</strong></td>
-                                    <td><span class="badge-entrada">+${m.quantidade}</span></td>
-                                    <td><small>${m.usuario_email}</small></td>
-                                </tr>`).join('') : '<tr><td colspan="4">Nenhuma entrada.</td></tr>'}
+                            ${(entradas && entradas.length > 0)
+                                ? entradas.map(e => `<tr><td>${new Date(e.criado_em).toLocaleString('pt-BR')}</td><td>${e.insumo}</td><td><span class="badge-entrada">+${e.quantidade}</span></td><td>${e.usuario_email || 'N/I'}</td></tr>`).join('')
+                                : '<tr><td colspan="4">Nenhuma entrada registrada.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
-
                 <div>
-                    <h3 style="color: #991b1b;">📤 Saídas / Baixas</h3>
+                    <h3 style="color: #991b1b;">📤 Saídas / Baixas de Material</h3>
                     <table>
                         <thead><tr><th>Data/Hora</th><th>Insumo</th><th>Qtd</th><th>Usuário</th></tr></thead>
                         <tbody>
-                            ${(saidas.length > 0) ? saidas.map(m => `
-                                <tr>
-                                    <td><small>${new Date(m.criado_em).toLocaleString('pt-BR')}</small></td>
-                                    <td><strong>${m.insumo}</strong></td>
-                                    <td><span class="badge-saida">-${m.quantidade}</span></td>
-                                    <td><small>${m.usuario_email}</small></td>
-                                </tr>`).join('') : '<tr><td colspan="4">Nenhuma saída.</td></tr>'}
+                            ${(saidas && saidas.length > 0)
+                                ? saidas.map(s => `<tr><td>${new Date(s.criado_em).toLocaleString('pt-BR')}</td><td>${s.insumo}</td><td><span class="badge-saida">-${s.quantidade}</span></td><td>${s.usuario_email || 'N/I'}</td></tr>`).join('')
+                                : '<tr><td colspan="4">Nenhuma baixa registrada.</td></tr>'}
                         </tbody>
                     </table>
                 </div>
@@ -642,108 +643,144 @@
         `;
     }
 
-    // 2. RELATÓRIO DE LOGS
+    // 2. RELATÓRIO DE LOGS / AUDITORIA
     async function gerarRelatorioLogs() {
         if (!obraAtivaId) return;
         const target = document.getElementById('print-logs');
-        const { data: logsAuditoria } = await supabaseClient.from('logs_auditoria').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
+        const { data: logs } = await supabaseClient.from('logs_auditoria').select('*').eq('obra_id', obraAtivaId).order('criado_em', { ascending: false });
 
         target.innerHTML = `
-            ${obterCabecalhoImpressao('RELATÓRIO DE LOGS DE AUDITORIA E ALTERAÇÕES')}
+            ${obterCabecalhoImpressao('LOGS DE ALTERAÇÕES & AUDITORIA DE SISTEMA')}
             <table>
                 <thead>
-                    <tr>
-                        <th>Data e Hora</th>
-                        <th>Ação / Evento</th>
-                        <th>Detalhes da Modificação</th>
-                        <th>Usuário Responsável</th>
-                    </tr>
+                    <tr><th>Data / Hora</th><th>Usuário</th><th>Ação</th><th>Detalhes do Lançamento</th></tr>
                 </thead>
                 <tbody>
-                    ${(logsAuditoria && logsAuditoria.length > 0) ? logsAuditoria.map(l => `
-                        <tr>
-                            <td>${new Date(l.criado_em).toLocaleString('pt-BR')}</td>
-                            <td><strong>${l.acao}</strong></td>
-                            <td>${l.detalhe}</td>
-                            <td>${l.usuario_email}</td>
-                        </tr>
-                    `).join('') : '<tr><td colspan="4">Nenhum log registrado para esta obra.</td></tr>'}
+                    ${(logs && logs.length > 0)
+                        ? logs.map(l => `
+                            <tr>
+                                <td>${new Date(l.criado_em).toLocaleString('pt-BR')}</td>
+                                <td>${l.usuario_email}</td>
+                                <td><strong>${l.acao}</strong></td>
+                                <td>${l.detalhe}</td>
+                            </tr>
+                        `).join('')
+                        : '<tr><td colspan="4">Nenhum registro de log encontrado para esta obra.</td></tr>'}
                 </tbody>
             </table>
         `;
     }
 
-    // 3. RELATÓRIO DO RDO / OBRA
+    // 3. RELATÓRIO RDO DA OBRA
     async function gerarRelatorioObraRDO() {
         if (!obraAtivaId) return;
         const target = document.getElementById('print-obra');
         const { data: rdos } = await supabaseClient.from('rdos').select('*').eq('obra_id', obraAtivaId).order('data', { ascending: false });
 
-        let html = obterCabecalhoImpressao('RELATÓRIO DIÁRIO DE OBRA (RDO)');
-
         if (!rdos || rdos.length === 0) {
-            html += `<p>Nenhum RDO cadastrado para esta obra.</p>`;
-        } else {
-            rdos.forEach(rdo => {
-                let fotosHtml = rdo.fotos ? rdo.fotos.map(url => `<div class="foto-card"><img src="${url}"></div>`).join('') : '';
-                const ef = rdo.efetivo || {};
-                const totalEfetivo = (ef.pedreiro||0)+(ef.servente||0)+(ef.operador||0)+(ef.carpinteiro||0)+(ef.serralheiro||0)+(ef.bombeiro||0)+(ef.terceirizado||0)+(ef.outros||0);
-
-                html += `
-                    <div style="border: 1px solid #cbd5e1; padding: 15px; margin-bottom: 15px; border-radius: 8px; page-break-inside: avoid; background: #fff;">
-                        <h3 style="margin-top:0;">Data: ${rdo.data} - Responsável: ${rdo.responsavel}</h3>
-                        <p><strong>Cadastrado por:</strong> ${rdo.usuario_email || 'N/A'} | <strong>Fase:</strong> ${rdo.fase || 'N/I'}</p>
-                        <p><strong>Clima:</strong> Manhã: ${rdo.clima_manha} | Tarde: ${rdo.clima_tarde} | <strong>Condição:</strong> ${rdo.condicao_trabalho}</p>
-                        
-                        <div style="background: #f1f5f9; padding: 10px; border-radius: 6px; margin: 10px 0;">
-                            <strong>👥 Efetivo Presente na Obra (Total: ${totalEfetivo} pessoas):</strong>
-                            <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 5px; font-size: 0.88em;">
-                                <span>🧱 Pedreiros: <b>${ef.pedreiro||0}</b></span>
-                                <span>🧹 Serventes: <b>${ef.servente||0}</b></span>
-                                <span>🚜 Operadores: <b>${ef.operador||0}</b></span>
-                                <span>🪵 Carpinteiros: <b>${ef.carpinteiro||0}</b></span>
-                                <span>⚙️ Serralheiros: <b>${ef.serralheiro||0}</b></span>
-                                <span>🚰 Bombeiros: <b>${ef.bombeiro||0}</b></span>
-                                <span>👔 Terceirizados: <b>${ef.terceirizado||0}</b></span>
-                                <span>👷 Outros: <b>${ef.outros||0}</b></span>
-                            </div>
-                        </div>
-
-                        <p><strong>Observações:</strong> ${rdo.ocorrencias || 'Nenhuma'}</p>
-                        <div class="foto-grid">${fotosHtml}</div>
-                    </div>
-                `;
-            });
+            target.innerHTML = `${obterCabecalhoImpressao('HISTÓRICO DE RELATÓRIOS DIÁRIOS DE OBRA')}<p>Nenhum RDO registrado para esta obra.</p>`;
+            return;
         }
+
+        let html = obterCabecalhoImpressao('HISTÓRICO DE RELATÓRIOS DIÁRIOS DE OBRA (RDO)');
+
+        rdos.forEach(r => {
+            const ef = r.efetivo || {};
+            const fotos = r.fotos || [];
+
+            html += `
+                <div style="border: 2px solid var(--border); padding: 15px; margin-bottom: 20px; border-radius: 8px; page-break-inside: avoid;">
+                    <div style="display:flex; justify-content:space-between; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 10px;">
+                        <strong style="font-size: 1.1em; color: var(--primary);">📅 Data: ${r.data}</strong>
+                        <span>Responsável: <strong>${r.responsavel || 'N/I'}</strong> | Fase: <strong>${r.fase || 'N/I'}</strong></span>
+                    </div>
+
+                    <div class="grid-3" style="font-size: 0.9em; margin-bottom: 10px;">
+                        <div><strong>Clima Manhã:</strong> ${r.clima_manha}</div>
+                        <div><strong>Clima Tarde:</strong> ${r.clima_tarde}</div>
+                        <div><strong>Condição:</strong> ${r.condicao_trabalho}</div>
+                    </div>
+
+                    <strong>👷 Efetivo Presente:</strong>
+                    <div style="font-size: 0.85em; display:flex; gap:12px; flex-wrap:wrap; background: #f1f5f9; padding: 8px; border-radius: 4px; margin: 5px 0 10px 0;">
+                        <span>Pedreiros: <b>${ef.pedreiro || 0}</b></span>
+                        <span>Serventes: <b>${ef.servente || 0}</b></span>
+                        <span>Operadores: <b>${ef.operador || 0}</b></span>
+                        <span>Carpinteiros: <b>${ef.carpinteiro || 0}</b></span>
+                        <span>Serralheiros: <b>${ef.serralheiro || 0}</b></span>
+                        <span>Bombeiros: <b>${ef.bombeiro || 0}</b></span>
+                        <span>Terceirizados: <b>${ef.terceirizado || 0}</b></span>
+                        <span>Outros: <b>${ef.outros || 0}</b></span>
+                    </div>
+
+                    <div style="margin-bottom: 10px;">
+                        <strong>📝 Ocorrências / Observações:</strong>
+                        <p style="margin: 3px 0; font-size: 0.9em; white-space: pre-line;">${r.ocorrencias || 'Sem ocorrências.'}</p>
+                    </div>
+
+                    ${fotos.length > 0 ? `
+                        <strong>📷 Fotos Anexadas:</strong>
+                        <div class="foto-grid">
+                            ${fotos.map(url => `<div class="foto-card"><a href="${url}" target="_blank"><img src="${url}" alt="Foto RDO"></a></div>`).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
 
         target.innerHTML = html;
     }
 
-    // IMPRESSÃO INDIVIDUAL DE CADA RELATÓRIO
-    function imprimirAbaSeparada(elementId) {
-        document.querySelectorAll('.print-area').forEach(el => el.classList.remove('print-area'));
-        const target = document.getElementById(elementId);
-        if (target) {
-            target.classList.add('print-area');
-            window.print();
-        }
+    function imprimirAbaSeparada(idDivImprimir) {
+        const conteudo = document.getElementById(idDivImprimir).innerHTML;
+        const janelaImpressao = window.open('', '_blank');
+        janelaImpressao.document.write(`
+            <html>
+                <head>
+                    <title>Impressão Relatório ASM</title>
+                    <style>
+                        body { font-family: sans-serif; padding: 20px; color: #1e293b; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 20px; }
+                        th, td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; font-size: 0.85em; }
+                        th { background-color: #f1f5f9; }
+                        .relatorio-header-print { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+                        .relatorio-header-print img { height: 50px; }
+                        .badge-entrada { color: #166534; font-weight: bold; }
+                        .badge-saida { color: #991b1b; font-weight: bold; }
+                        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+                        .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+                        .foto-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 5px; }
+                        .foto-card { width: 120px; height: 90px; border: 1px solid #ccc; }
+                        .foto-card img { width: 100%; height: 100%; object-fit: cover; }
+                    </style>
+                </head>
+                <body>
+                    ${conteudo}
+                </body>
+            </html>
+        `);
+        janelaImpressao.document.close();
+        janelaImpressao.focus();
+        setTimeout(() => { janelaImpressao.print(); }, 500);
     }
 
+    // MODAL OBRA
     function abrirModalObra(modo) {
         document.getElementById('modal-obra-overlay').style.display = 'flex';
-        if (modo === 'editar') {
-            const obra = listaObras.find(o => o.id === obraAtivaId);
-            if (obra) {
-                document.getElementById('obraIdEdicao').value = obra.id;
-                document.getElementById('modalObraNome').value = obra.nome;
-                document.getElementById('modalObraEndereco').value = obra.endereco || '';
-                document.getElementById('modalObraCoordenadas').value = obra.coordenadas || '';
-            }
+        if (modo === 'criar') {
+            document.getElementById('modalObraTitulo').innerText = "🏗️ Cadastrar Obra";
+            document.getElementById('obraIdEdicao').value = "";
+            document.getElementById('modalObraNome').value = "";
+            document.getElementById('modalObraEndereco').value = "";
+            document.getElementById('modalObraCoordenadas').value = "";
         } else {
-            document.getElementById('obraIdEdicao').value = '';
-            document.getElementById('modalObraNome').value = '';
-            document.getElementById('modalObraEndereco').value = '';
-            document.getElementById('modalObraCoordenadas').value = '';
+            const obra = listaObras.find(o => o.id === obraAtivaId);
+            if (!obra) return;
+            document.getElementById('modalObraTitulo').innerText = "✏️ Editar Obra";
+            document.getElementById('obraIdEdicao').value = obra.id;
+            document.getElementById('modalObraNome').value = obra.nome;
+            document.getElementById('modalObraEndereco').value = obra.endereco || "";
+            document.getElementById('modalObraCoordenadas').value = obra.coordenadas || "";
         }
     }
 
@@ -755,19 +792,17 @@
         const endereco = document.getElementById('modalObraEndereco').value.trim();
         const coordenadas = document.getElementById('modalObraCoordenadas').value.trim();
 
-        if (!nome) return alert("Insira o nome da obra.");
+        if (!nome) return alert("Informe o nome da obra.");
 
         if (id) {
             const { error } = await supabaseClient.from('obras').update({ nome, endereco, coordenadas }).eq('id', id);
-            if (error) alert("Erro ao atualizar obra: " + error.message);
-            else await registrarLog('EDITAR_OBRA', `Obra id ${id} editada. Nome: ${nome}`);
+            if (error) return alert("Erro ao atualizar obra: " + error.message);
+            await registrarLog('OBRA_EDITADA', `Obra: ${nome}`);
         } else {
             const { data, error } = await supabaseClient.from('obras').insert([{ nome, endereco, coordenadas, status: 'ativa' }]).select();
-            if (error) alert("Erro ao criar obra: " + error.message);
-            else if (data && data[0]) {
-                obraAtivaId = data[0].id;
-                await registrarLog('CRIAR_OBRA', `Obra "${nome}" criada.`);
-            }
+            if (error) return alert("Erro ao criar obra: " + error.message);
+            if (data && data[0]) obraAtivaId = data[0].id;
+            await registrarLog('OBRA_CRIADA', `Obra: ${nome}`);
         }
 
         fecharModalObra();
@@ -775,60 +810,69 @@
     }
 
     async function arquivarObraAtual() {
-        if (!obraAtivaId) return;
-        const obra = listaObras.find(o => o.id === obraAtivaId);
-        if (confirm("Deseja realmente arquivar a obra atual?")) {
-            await supabaseClient.from('obras').update({ status: 'arquivada' }).eq('id', obraAtivaId);
-            await registrarLog('ARQUIVAR_OBRA', `Obra "${obra?.nome}" arquivada.`);
-            obraAtivaId = null;
-            await carregarObras();
-        }
-    }
-
-    async function desalquivarObra(id) {
-        const obra = listaObras.find(o => o.id === id);
-        await supabaseClient.from('obras').update({ status: 'ativa' }).eq('id', id);
-        obraAtivaId = id;
-        await registrarLog('DESARQUIVAR_OBRA', `Obra "${obra?.nome}" reativada.`);
+        if (!obraAtivaId || !confirm("Deseja realmente arquivar esta obra?")) return;
+        const { error } = await supabaseClient.from('obras').update({ status: 'arquivada' }).eq('id', obraAtivaId);
+        if (error) return alert("Erro ao arquivar: " + error.message);
+        await registrarLog('OBRA_ARQUIVADA', `ID Obra: ${obraAtivaId}`);
+        obraAtivaId = null;
         await carregarObras();
     }
 
     async function excluirObraAtiva() {
-        if (!obraAtivaId) return;
-        const obra = listaObras.find(o => o.id === obraAtivaId);
-        if (confirm("ATENÇÃO: Deseja excluir esta obra permanentemente?")) {
-            await registrarLog('EXCLUIR_OBRA', `Obra "${obra?.nome}" excluída permanentemente.`);
-            await supabaseClient.from('obras').delete().eq('id', obraAtivaId);
-            obraAtivaId = null;
-            await carregarObras();
-        }
+        if (perfilUsuarioAtual?.role !== 'admin') return alert("Apenas Administradores podem excluir obras.");
+        if (!obraAtivaId || !confirm("ATENÇÃO: Deseja EXCLUIR DEFINITIVAMENTE esta obra e seus registros?")) return;
+        const { error } = await supabaseClient.from('obras').delete().eq('id', obraAtivaId);
+        if (error) return alert("Erro ao excluir: " + error.message);
+        obraAtivaId = null;
+        await carregarObras();
     }
 
     function atualizarTabelaArquivadas() {
+        const arquivadas = listaObras.filter(o => o.status === 'arquivada');
         const tbody = document.getElementById('tabelaObrasArquivadas');
         tbody.innerHTML = '';
-        const arquivadas = listaObras.filter(o => o.status === 'arquivada');
-
         if (arquivadas.length === 0) {
             tbody.innerHTML = '<tr><td colspan="2">Nenhuma obra arquivada.</td></tr>';
             return;
         }
-
-        arquivadas.forEach(obra => {
+        arquivadas.forEach(o => {
             tbody.innerHTML += `
                 <tr>
-                    <td>${obra.nome}</td>
-                    <td><button class="btn-success" onclick="desalquivarObra('${obra.id}')">Desarquivar 📂</button></td>
+                    <td>${o.nome}</td>
+                    <td><button class="btn-success" onclick="desarquivarObra('${o.id}')">🔄 Reativar Obra</button></td>
+                </tr>
+            `;
+        });
+    }
+
+    async function desarquivarObra(id) {
+        const { error } = await supabaseClient.from('obras').update({ status: 'ativa' }).eq('id', id);
+        if (error) return alert("Erro ao desarquivar: " + error.message);
+        obraAtivaId = id;
+        await carregarObras();
+    }
+
+    // GESTÃO DE USUÁRIOS
+    async function carregarUsuarios() {
+        const { data } = await supabaseClient.from('perfis').select('*');
+        const tbody = document.getElementById('tabelaUsuariosCorpo');
+        tbody.innerHTML = '';
+        (data || []).forEach(u => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${u.email}</td>
+                    <td><strong>${u.role}</strong></td>
+                    <td><small>${u.id}</small></td>
+                    <td style="text-align: center;">
+                        <button class="btn-danger" style="padding: 3px 8px; font-size: 0.8em;" onclick="excluirPerfilUsuario('${u.id}', '${u.email}')">Excluir</button>
+                    </td>
                 </tr>
             `;
         });
     }
 
     function abrirModalUsuario() { document.getElementById('modal-usuario-overlay').style.display = 'flex'; }
-    function fecharModalUsuario() { 
-        document.getElementById('modal-usuario-overlay').style.display = 'none';
-        document.getElementById('novoUserEmail').value = '';
-    }
+    function fecharModalUsuario() { document.getElementById('modal-usuario-overlay').style.display = 'none'; }
 
     async function cadastrarUsuario() {
         const email = document.getElementById('novoUserEmail').value.trim();
@@ -837,69 +881,21 @@
 
         if (!email || !password) return alert("Preencha e-mail e senha.");
 
-        try {
-            const response = await fetch(`${SUPABASE_URL}/auth/v1/signup`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
-                body: JSON.stringify({ email, password })
-            });
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        if (error) return alert("Erro ao criar usuário Auth: " + error.message);
 
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.msg || data.error_description || data.message || "Erro no cadastro.");
-
-            const newUserId = data.id || data.user?.id;
-            if (newUserId) {
-                const { error: profileError } = await supabaseClient.from('perfis').upsert([{
-                    id: newUserId, email: email, role: role, senha_temporaria: true
-                }], { onConflict: 'id' });
-
-                if (profileError) {
-                    alert("Erro ao configurar perfil: " + profileError.message);
-                } else {
-                    await registrarLog('CRIAR_USUARIO', `Novo usuário cadastrado: ${email}`);
-                    alert("Usuário criado com sucesso!");
-                    fecharModalUsuario();
-                    carregarUsuarios();
-                }
-            }
-        } catch (err) {
-            alert("Erro ao cadastrar usuário: " + err.message);
+        if (data.user) {
+            await supabaseClient.from('perfis').insert([{ id: data.user.id, email: email, role: role }]);
+            alert("Usuário cadastrado com sucesso!");
+            fecharModalUsuario();
+            carregarUsuarios();
         }
     }
 
-    async function carregarUsuarios() {
-        const { data, error } = await supabaseClient.from('perfis').select('*');
-        const tbody = document.getElementById('tabelaUsuariosCorpo');
-        tbody.innerHTML = '';
-
-        if (error) return alert("Erro ao carregar usuários: " + error.message);
-
-        (data || []).forEach(u => {
-            const ehSuperAdmin = u.email === EMAIL_SUPERADMIN;
-            const botaoDeletar = ehSuperAdmin ? '<span style="color:#64748b; font-size:0.8em;">(SuperAdmin)</span>' : `<button class="btn-danger" onclick="deletarUsuario('${u.id}', '${u.email}')">Excluir</button>`;
-
-            tbody.innerHTML += `
-                <tr>
-                    <td>${u.email}</td>
-                    <td><strong>${u.role}</strong></td>
-                    <td><small>${u.id}</small></td>
-                    <td style="text-align: center;">${botaoDeletar}</td>
-                </tr>
-            `;
-        });
-    }
-
-    async function deletarUsuario(id, email) {
-        if (email === EMAIL_SUPERADMIN) return alert("SuperAdmin não pode ser removido.");
-        if (confirm(`Deseja remover o usuário ${email}?`)) {
-            const { error } = await supabaseClient.from('perfis').delete().eq('id', id);
-            if (error) alert("Erro ao deletar: " + error.message);
-            else { 
-                await registrarLog('EXCLUIR_USUARIO', `Usuário ${email} removido do sistema.`);
-                alert("Usuário removido!"); 
-                carregarUsuarios(); 
-            }
-        }
+    async function excluirPerfilUsuario(id, email) {
+        if (!confirm(`Deseja remover o perfil de ${email}?`)) return;
+        await supabaseClient.from('perfis').delete().eq('id', id);
+        carregarUsuarios();
     }
 </script>
 </body>
